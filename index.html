@@ -307,6 +307,17 @@ function bedSummary(b){
   return { chip, label, line: inf };
 }
 function BedList({beds, onOpen}){
+  const [copied, setCopied] = useState(false);
+  const anyOccupied = beds.some(b=>b.occupied);
+
+  function copyResumo(){
+    const txt = buildResumo(beds);
+    const done = ()=>{ setCopied(true); setTimeout(()=>setCopied(false), 1800); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done).catch(()=>{ fallbackCopy(txt); done(); });
+    } else { fallbackCopy(txt); done(); }
+  }
+
   return (
     <div className="wrap">
       <div className="grid">
@@ -322,9 +333,96 @@ function BedList({beds, onOpen}){
           );
         })}
       </div>
+      {anyOccupied &&
+        <button className="btn primary" style={{marginTop:16}} onClick={copyResumo}>
+          {copied ? "✓ Copiado!" : "Copiar resumo do plantão"}
+        </button>}
       <div className="spacer"></div>
     </div>
   );
+}
+
+function fallbackCopy(txt){
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }catch(e){}
+}
+
+function fmtData(d){
+  if(!d) return "";
+  const p = d.split("-");           // yyyy-mm-dd
+  return p.length===3 ? `${p[2]}/${p[1]}` : d;
+}
+function invLine(inv){
+  const parts = [inv.nome];
+  if(inv.sitio) parts.push(inv.sitio);
+  if(inv.sitios && inv.sitios.length) parts.push(inv.sitios.join("/"));
+  if(isDVE(inv.nome)){
+    parts.push(inv.altura ? `coluna ${inv.altura}` : "coluna —");
+    if(inv.estado) parts.push(inv.estado);
+  }
+  if(inv.montagem) parts.push(inv.montagem);
+  if(inv.debito) parts.push(`${inv.debito} mL`);
+  if(inv.aspecto) parts.push(inv.aspecto);
+  let line = parts.join(" · ");
+  if(inv.data) line += ` (${fmtData(inv.data)})`;
+  return line;
+}
+const CHECK_LABELS = { ok:"OK", pend:"PENDÊNCIA", na:"N/A", "":"—" };
+function buildResumo(beds){
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2,"0");
+  const mm = String(now.getMonth()+1).padStart(2,"0");
+  const hh = String(now.getHours()).padStart(2,"0");
+  const mi = String(now.getMinutes()).padStart(2,"0");
+  const header = `RESUMO DO PLANTÃO — ${dd}/${mm}/${now.getFullYear()} ${hh}:${mi}`;
+  const blocks = [header, ""];
+
+  beds.filter(b=>b.occupied).forEach(b=>{
+    const L = [];
+    L.push(`LEITO ${b.num} — ${b.peso ? b.peso+" kg" : "— kg"}`);
+    // ventilacao
+    const vent = b.modo || "—";
+    const vparams = `FiO₂ ${b.fio2||"—"}% / PEEP ${b.peep||"—"} / FR ${b.fr||"—"} / VC ${b.vc||"—"}`;
+    L.push(`Ventilação: ${vent} — ${vparams}`);
+    // infusoes
+    const infs = (b.infusoes||[]).filter(i=>i.nome||i.vazao);
+    if(infs.length){
+      L.push("Infusões: " + infs.map(i=>`${i.nome||"—"} ${i.vazao||"—"} mL/h`).join("; "));
+    } else {
+      L.push("Infusões: —");
+    }
+    // invasoes
+    const invs = (b.invasoes||[]);
+    if(invs.length){
+      L.push("Invasões:");
+      invs.forEach(inv=> L.push(`- ${invLine(inv)}`));
+    } else {
+      L.push("Invasões: —");
+    }
+    // checklist
+    const c = b.check||{}; const cn = b.checkNote||{};
+    const ck = (k,lbl)=>{
+      let s = `${lbl} ${CHECK_LABELS[c[k]||""]}`;
+      if(cn[k]) s += ` (${cn[k]})`;
+      return s;
+    };
+    L.push("Checklist: " + [
+      ck("inv","Invasões"), ck("prof","Profilaxias"), ck("analg","Analgesia"),
+      ck("atb","ATB"), ck("lab","Labs"), ck("rx","RX")
+    ].join(" · "));
+    // pendencias
+    L.push(`Pendências: ${b.pend ? b.pend : "—"}`);
+    blocks.push(L.join("\n"));
+    blocks.push("");
+  });
+
+  blocks.push("—".repeat(3));
+  blocks.push("App desenvolvido por Dr. Matheus Barros — CRM/RJ 1361210");
+  return blocks.join("\n");
 }
 
 /* ---------- bed detail ---------- */
