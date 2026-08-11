@@ -89,6 +89,16 @@
   .inv .head .name{font-size:14px; font-weight:700; flex:1;}
   .inv .head .cat{font-size:10px; font-weight:700; color:var(--accent2); text-transform:uppercase;
     background:rgba(63,165,255,.12); padding:2px 7px; border-radius:20px;}
+  .inv .head .dias{font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px;
+    background:rgba(143,176,201,.14); color:var(--muted);}
+  .inv .head .dias.alert{background:rgba(255,107,107,.18); color:var(--danger);}
+  .inv.alert{border-color:rgba(255,107,107,.5);}
+  .dve-flag{display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px;
+    border-radius:10px; background:var(--panel); border:1px solid var(--line);}
+  .dve-flag.on{background:rgba(255,180,84,.14); border-color:var(--warn);}
+  .dve-flag button{flex:1; text-align:left; font-size:13px; font-weight:700; color:var(--muted);}
+  .dve-flag.on button{color:var(--warn);}
+  .ref-note{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;}
   .inv .del{color:var(--danger); font-size:18px; padding:2px 6px;}
   .infusion{display:grid; grid-template-columns:1fr 88px auto; gap:8px; align-items:end; margin-bottom:8px;}
   .infusion .del{color:var(--danger); font-size:18px; padding:8px 4px;}
@@ -144,6 +154,11 @@ function freshPatient(){
   return {
     peso:"", modo:"", fio2:"", peep:"", fr:"", vc:"",
     infusoes:[], invasoes:[], pend:"",
+    vitais:{ pa:"", fc:"", sat:"", tax:"" },
+    h24:{ tax:"", taxObs:"", pasMin:"", pasMax:"", padMin:"", padMax:"",
+          frMin:"", frMax:"", gliMin:"", gliMax:"", gliObs:"",
+          evac:"", du:"", bh:"" },
+    gaso:{ ph:"", pco2:"", po2:"", lac:"", hco3:"", sao2:"", pf:"" },
     check:{ inv:"", prof:"", analg:"", atb:"", lab:"", rx:"" },
     checkNote:{ inv:"", prof:"", analg:"", atb:"", lab:"", rx:"" },
   };
@@ -157,7 +172,7 @@ function save(beds){ try{ localStorage.setItem(KEY, JSON.stringify(beds)); }catc
 /* ---------- invasion catalog ---------- */
 const CATALOG = [
   { cat:"Via aérea", items:["TOT","TQT"] },
-  { cat:"Vascular", items:["CVC","PICC","PAI","Acesso periférico","Cateter de diálise"] },
+  { cat:"Vascular", items:["CVC","PICC","PAI","Acesso periférico","CDL"] },
   { cat:"Neuro", items:["DVE","Cateter de PIC","DVP/DLP"] },
   { cat:"Drenos", items:["Hemovac","Dreno de cavidade","Dreno tubular/laminar","Dreno torácico"] },
   { cat:"Urinário / digestivo", items:["SVD","SNE/SNG"] },
@@ -178,6 +193,27 @@ const MONTAGENS = ["Selo d'água","Pigtail","Aspiração contínua","Bolsa/gravi
 const ABD_DRAINS = ["Hemovac","Dreno de cavidade","Dreno tubular/laminar"];
 function isAbdDrain(name){ return ABD_DRAINS.includes(name); }
 function isThoraxDrain(name){ return name==="Dreno torácico"; }
+
+// contagem de dias de dispositivo + alertas
+const PUNCAO_PROFUNDA = ["CVC","PICC"];  // regra 14 dias (CDL fica de fora)
+function diasDe(dataStr){
+  if(!dataStr) return null;
+  const d = new Date(dataStr + "T00:00:00");
+  if(isNaN(d)) return null;
+  const hoje = new Date();
+  const h0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.floor((h0 - d0) / 86400000);
+}
+// retorna {dias, alerta:boolean} para o dispositivo, ou null se nao aplicavel
+function statusDispositivo(inv){
+  const dias = diasDe(inv.data);
+  if(dias===null) return null;
+  let alerta = false;
+  if(inv.nome==="TOT" && dias>10) alerta = true;
+  if(PUNCAO_PROFUNDA.includes(inv.nome) && dias>14) alerta = true;
+  return { dias, alerta };
+}
 
 // sitios de insercao para CVC e PAI
 const SITE_OPTS = {
@@ -368,7 +404,11 @@ function invLine(inv){
   if(inv.debito) parts.push(`${inv.debito} mL`);
   if(inv.aspecto) parts.push(inv.aspecto);
   let line = parts.join(" · ");
-  if(inv.data) line += ` (${fmtData(inv.data)})`;
+  const st = statusDispositivo(inv);
+  if(inv.data) line += ` (${fmtData(inv.data)}`;
+  if(st!==null){ line += inv.data ? `, ${st.dias}d` : ` (${st.dias}d`; if(st.alerta) line += " ⚠"; }
+  if(inv.data || st!==null) line += ")";
+  if(isDVE(inv.nome) && inv.questionarRetirada) line += " — ⚑ QUESTIONAR RETIRADA";
   return line;
 }
 const CHECK_LABELS = { ok:"OK", pend:"PENDÊNCIA", na:"N/A", "":"—" };
@@ -384,6 +424,11 @@ function buildResumo(beds){
   beds.filter(b=>b.occupied).forEach(b=>{
     const L = [];
     L.push(`LEITO ${b.num} — ${b.peso ? b.peso+" kg" : "— kg"}`);
+    // sinais vitais atuais
+    const V = b.vitais||{};
+    if(V.pa||V.fc||V.sat||V.tax){
+      L.push(`Sinais vitais: PA ${V.pa||"—"} · FC ${V.fc||"—"} · Sat ${V.sat||"—"}% · Tax ${V.tax||"—"}°C`);
+    }
     // ventilacao
     const vent = b.modo || "—";
     const vparams = `FiO₂ ${b.fio2||"—"}% / PEEP ${b.peep||"—"} / FR ${b.fr||"—"} / VC ${b.vc||"—"}`;
@@ -402,6 +447,24 @@ function buildResumo(beds){
       invs.forEach(inv=> L.push(`- ${invLine(inv)}`));
     } else {
       L.push("Invasões: —");
+    }
+    // ultimas 24h
+    const H = b.h24||{};
+    const has24 = Object.values(H).some(v=>v);
+    if(has24){
+      L.push("Últimas 24h:");
+      L.push(`  Temperatura: ${H.tax||"—"}${H.taxObs?` (${H.taxObs})`:""}`);
+      L.push(`  Hemodinâmica: PAS ${H.pasMin||"—"}-${H.pasMax||"—"} / PAD ${H.padMin||"—"}-${H.padMax||"—"}`);
+      L.push(`  Respiratório: ${H.frMin||"—"}-${H.frMax||"—"}`);
+      L.push(`  Glicemia: ${H.gliMin||"—"}-${H.gliMax||"—"}${H.gliObs?` (${H.gliObs})`:""}`);
+      L.push(`  Evacuações: ${H.evac||"—"}`);
+      L.push(`  DU: ${H.du||"—"} mL // BH: ${H.bh||"—"} mL`);
+    }
+    // gasometria
+    const G = b.gaso||{};
+    const hasGaso = Object.values(G).some(v=>v);
+    if(hasGaso){
+      L.push(`Gaso: pH ${G.ph||"—"} · pCO₂ ${G.pco2||"—"} · pO₂ ${G.po2||"—"} · Lac ${G.lac||"—"} · HCO₃ ${G.hco3||"—"} · SatO₂ ${G.sao2||"—"} · P/F ${G.pf||"—"}`);
     }
     // checklist
     const c = b.check||{}; const cn = b.checkNote||{};
@@ -447,6 +510,10 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
   const set = (patch)=>onChange(patch);
   const setCheck = (k,v)=> set({ check: {...bed.check, [k]: bed.check[k]===v ? "" : v} });
   const setCheckNote = (k,v)=> set({ checkNote: {...bed.checkNote, [k]: v} });
+  const setVital = (k,v)=> set({ vitais: {...(bed.vitais||{}), [k]: v} });
+  const setH24 = (k,v)=> set({ h24: {...(bed.h24||{}), [k]: v} });
+  const setGaso = (k,v)=> set({ gaso: {...(bed.gaso||{}), [k]: v} });
+  const V = bed.vitais||{}; const H = bed.h24||{}; const G = bed.gaso||{};
 
   // infusions
   const addInf = ()=> set({ infusoes:[...(bed.infusoes||[]), {nome:"", vazao:""}] });
@@ -473,6 +540,17 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
         <h2>Identificação</h2>
         <div className="row c2">
           <div><label>Peso (kg)</label><input type="number" inputMode="decimal" value={bed.peso} onChange={e=>set({peso:e.target.value})} placeholder="ex: 72"/></div>
+        </div>
+      </div>
+
+      {/* sinais vitais atuais */}
+      <div className="section">
+        <h2>Sinais vitais</h2>
+        <div className="row c4">
+          <div><label>PA (mmHg)</label><input value={V.pa} onChange={e=>setVital("pa", e.target.value)} placeholder="120/80"/></div>
+          <div><label>FC (bpm)</label><input type="number" inputMode="numeric" value={V.fc} onChange={e=>setVital("fc", e.target.value)}/></div>
+          <div><label>Sat (%)</label><input type="number" inputMode="numeric" value={V.sat} onChange={e=>setVital("sat", e.target.value)}/></div>
+          <div><label>Tax (°C)</label><input type="number" inputMode="decimal" value={V.tax} onChange={e=>setVital("tax", e.target.value)}/></div>
         </div>
       </div>
 
@@ -512,11 +590,14 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
       <div className="section">
         <h2>Invasões</h2>
         {(bed.invasoes||[]).length===0 && <div className="empty-note">Nenhuma invasão adicionada</div>}
-        {(bed.invasoes||[]).map((inv,i)=>(
-          <div className="inv" key={i}>
+        {(bed.invasoes||[]).map((inv,i)=>{
+          const st = statusDispositivo(inv);
+          return (
+          <div className={"inv"+(st&&st.alerta?" alert":"")} key={i}>
             <div className="head">
               <span className="name">{inv.nome}</span>
               <span className="cat">{catOf(inv.nome)}</span>
+              {st!==null && <span className={"dias"+(st.alerta?" alert":"")}>{st.dias}d</span>}
               <button className="del" onClick={()=>delInv(i)}>✕</button>
             </div>
             <div className="row c2">
@@ -583,12 +664,74 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
               </div></div>}
             {(isDrain(inv.nome) || isDVE(inv.nome)) &&
               <div className="row c2">
-                <div><label>Débito 24h (mL)</label><input type="number" inputMode="numeric" value={inv.debito} onChange={e=>setInv(i,{debito:e.target.value})}/></div>
+                <div>
+                  <label>Débito 24h (mL)</label>
+                  <input type="number" inputMode="numeric" value={inv.debito} onChange={e=>setInv(i,{debito:e.target.value})}/>
+                  {isDVE(inv.nome) && <div className="ref-note">Referência de desmame: &lt; 250 mL/24h (critério institucional, não universal)</div>}
+                </div>
                 <div><label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: liquórico claro"/></div>
               </div>}
+            {isDVE(inv.nome) &&
+              <div className={"dve-flag"+(inv.questionarRetirada?" on":"")}>
+                <button onClick={()=>setInv(i,{questionarRetirada: !inv.questionarRetirada})}>
+                  {inv.questionarRetirada ? "⚑ Questionar retirada (marcado)" : "○ Questionar retirada?"}
+                </button>
+              </div>}
           </div>
-        ))}
+          );
+        })}
         <button className="btn ghost sm" style={{marginTop:8}} onClick={()=>setShowInv(true)}>+ Invasão</button>
+      </div>
+
+      {/* últimas 24h */}
+      <div className="section">
+        <h2>Últimas 24h</h2>
+        <div className="row c2">
+          <div><label>Temperatura</label><input value={H.tax} onChange={e=>setH24("tax", e.target.value)} placeholder="38,0"/></div>
+          <div><label>Obs. temp (ex: 3X)</label><input value={H.taxObs} onChange={e=>setH24("taxObs", e.target.value)} placeholder="3X"/></div>
+        </div>
+        <label style={{marginTop:6}}>Hemodinâmica — PAS (mín / máx)</label>
+        <div className="row c2">
+          <div><input type="number" inputMode="numeric" value={H.pasMin} onChange={e=>setH24("pasMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.pasMax} onChange={e=>setH24("pasMax", e.target.value)} placeholder="máx"/></div>
+        </div>
+        <label style={{marginTop:6}}>PAD (mín / máx)</label>
+        <div className="row c2">
+          <div><input type="number" inputMode="numeric" value={H.padMin} onChange={e=>setH24("padMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.padMax} onChange={e=>setH24("padMax", e.target.value)} placeholder="máx"/></div>
+        </div>
+        <label style={{marginTop:6}}>Respiratório — FR (mín / máx)</label>
+        <div className="row c2">
+          <div><input type="number" inputMode="numeric" value={H.frMin} onChange={e=>setH24("frMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.frMax} onChange={e=>setH24("frMax", e.target.value)} placeholder="máx"/></div>
+        </div>
+        <label style={{marginTop:6}}>Glicemia (mín / máx / obs)</label>
+        <div className="row c3">
+          <div><input type="number" inputMode="numeric" value={H.gliMin} onChange={e=>setH24("gliMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.gliMax} onChange={e=>setH24("gliMax", e.target.value)} placeholder="máx"/></div>
+          <div><input value={H.gliObs} onChange={e=>setH24("gliObs", e.target.value)} placeholder="34UI"/></div>
+        </div>
+        <div className="row c3" style={{marginTop:6}}>
+          <div><label>Evacuações</label><input value={H.evac} onChange={e=>setH24("evac", e.target.value)} placeholder="31/07"/></div>
+          <div><label>DU (mL)</label><input value={H.du} onChange={e=>setH24("du", e.target.value)} placeholder="2400"/></div>
+          <div><label>BH</label><input value={H.bh} onChange={e=>setH24("bh", e.target.value)} placeholder="+500"/></div>
+        </div>
+      </div>
+
+      {/* gasometria */}
+      <div className="section">
+        <h2>Gasometria</h2>
+        <div className="row c4">
+          <div><label>pH</label><input type="number" inputMode="decimal" value={G.ph} onChange={e=>setGaso("ph", e.target.value)} placeholder="7,40"/></div>
+          <div><label>pCO₂</label><input type="number" inputMode="decimal" value={G.pco2} onChange={e=>setGaso("pco2", e.target.value)}/></div>
+          <div><label>pO₂</label><input type="number" inputMode="decimal" value={G.po2} onChange={e=>setGaso("po2", e.target.value)}/></div>
+          <div><label>Lac</label><input type="number" inputMode="decimal" value={G.lac} onChange={e=>setGaso("lac", e.target.value)}/></div>
+        </div>
+        <div className="row c3" style={{marginTop:8}}>
+          <div><label>HCO₃</label><input type="number" inputMode="decimal" value={G.hco3} onChange={e=>setGaso("hco3", e.target.value)}/></div>
+          <div><label>SatO₂</label><input type="number" inputMode="decimal" value={G.sao2} onChange={e=>setGaso("sao2", e.target.value)}/></div>
+          <div><label>P/F</label><input type="number" inputMode="decimal" value={G.pf} onChange={e=>setGaso("pf", e.target.value)}/></div>
+        </div>
       </div>
 
       {/* checklist */}
