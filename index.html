@@ -99,6 +99,8 @@
   .dve-flag button{flex:1; text-align:left; font-size:13px; font-weight:700; color:var(--muted);}
   .dve-flag.on button{color:var(--warn);}
   .ref-note{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;}
+  .bh-box{background:var(--panel2); border:1px solid var(--accent); border-radius:10px;
+    padding:10px 12px; font-size:18px; font-weight:800; color:var(--accent); text-align:center;}
   .inv .del{color:var(--danger); font-size:18px; padding:2px 6px;}
   .infusion{display:grid; grid-template-columns:1fr 88px auto; gap:8px; align-items:end; margin-bottom:8px;}
   .infusion .del{color:var(--danger); font-size:18px; padding:8px 4px;}
@@ -158,7 +160,7 @@ function freshPatient(){
     vitais:{ pa:"", fc:"", sat:"", tax:"" },
     h24:{ tax:"", taxObs:"", pasMin:"", pasMax:"", padMin:"", padMax:"",
           frMin:"", frMax:"", gliMin:"", gliMax:"", gliObs:"",
-          evac:"", du:"", bh:"" },
+          evac:"", entradas:"", drenos:"", du:"", uf:"" },
     gaso:{ ph:"", pco2:"", po2:"", lac:"", hco3:"", sao2:"", pf:"" },
     check:{ inv:"", prof:"", analg:"", atb:"", lab:"", rx:"" },
     checkNote:{ inv:"", prof:"", analg:"", atb:"", lab:"", rx:"" },
@@ -200,6 +202,15 @@ function ventFields(modo){
   }
 }
 const VENT_LABELS = { vc:"VC", fr:"FR", peep:"PEEP", fio2:"FiO₂ %", pi:"PI", psup:"Psup", fluxo:"Fluxo (L/min)" };
+// balanco hidrico: Entradas - Drenos - DU - UF. Campo vazio = ausente (nao entra); "0" digitado entra como 0.
+function calcBH(H){
+  if(!H) return null;
+  const keys = ["entradas","drenos","du","uf"];
+  const anyFilled = keys.some(k => H[k]!=="" && H[k]!=null);
+  if(!anyFilled) return null;
+  const num = (v)=> (v==="" || v==null || isNaN(parseFloat(v))) ? 0 : parseFloat(v);
+  return Math.round(num(H.entradas) - num(H.drenos) - num(H.du) - num(H.uf));
+}
 function load(){
   try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){}
   return Array.from({length:NBEDS}, (_,i)=>emptyBed(i+1));
@@ -212,7 +223,7 @@ const CATALOG = [
   { cat:"Vascular", items:["CVC","PICC","PAI","Acesso periférico","CDL"] },
   { cat:"Neuro", items:["DVE","Cateter de PIC","DVP/DLP"] },
   { cat:"Drenos", items:["Hemovac","Dreno de cavidade","Dreno tubular/laminar","Dreno torácico"] },
-  { cat:"Urinário / digestivo", items:["SVD","SNE/SNG"] },
+  { cat:"Urinário / digestivo", items:["SVD","SNE/SNG","SNG em sifonagem","Ostomia"] },
 ];
 const DRAIN_TYPES = ["Hemovac","Dreno de cavidade","Dreno tubular/laminar","Dreno torácico"];
 function catOf(name){
@@ -221,11 +232,16 @@ function catOf(name){
 }
 function isDrain(name){ return DRAIN_TYPES.includes(name); }
 function isDVE(name){ return name==="DVE"; }
+function isOstomia(name){ return name==="Ostomia"; }
+function isSngSifon(name){ return name==="SNG em sifonagem"; }
+function isOutra(name){ return catOf(name)==="Outra"; }  // dispositivo digitado pelo usuario
 
 // sitio abdominal (9 regioes + posicoes cirurgicas opcionais)
 const ABD_REGIOES = ["Hipocôndrio D","Epigástrio","Hipocôndrio E","Flanco D","Mesogástrio","Flanco E","Fossa ilíaca D","Hipogástrio","Fossa ilíaca E"];
 const ABD_CIRURGICAS = ["Subhepático","Subfrênico D","Subfrênico E","Pélvico/fundo de saco","Leito cirúrgico","Parietocólica D","Parietocólica E"];
 const TORAX_SITIOS = ["Hemitórax D","Hemitórax E","Anterior","Posterior","Basal","Apical"];
+// seletor amplo (torax -> abdome) para dispositivos "Outra", selecao unica
+const SITE_AMPLO = [...TORAX_SITIOS, ...ABD_REGIOES, ...ABD_CIRURGICAS];
 const MONTAGENS = ["Selo d'água","Pigtail","Aspiração contínua","Bolsa/gravidade"];
 const ABD_DRAINS = ["Hemovac","Dreno de cavidade","Dreno tubular/laminar"];
 function isAbdDrain(name){ return ABD_DRAINS.includes(name); }
@@ -255,6 +271,7 @@ function statusDispositivo(inv){
 // sitios de insercao para CVC e PAI
 const SITE_OPTS = {
   "CVC": ["VSCE","VSCD","VJID","VJIE","VFE","VFD"],
+  "CDL": ["VSCE","VSCD","VJID","VJIE","VFE","VFD"],
   "PAI": ["ARE","ARD","Braquial E","Braquial D","AFE","AFD"],
 };
 function hasSite(name){ return !!SITE_OPTS[name]; }
@@ -504,7 +521,10 @@ function buildResumo(beds){
       L.push(`  Respiratório: ${H.frMin||"—"}-${H.frMax||"—"}`);
       L.push(`  Glicemia: ${H.gliMin||"—"}-${H.gliMax||"—"}${H.gliObs?` (${H.gliObs})`:""}`);
       L.push(`  Evacuações: ${H.evac||"—"}`);
-      L.push(`  DU: ${H.du||"—"} mL // BH: ${H.bh||"—"} mL`);
+      const bh = calcBH(H);
+      const ufTxt = (H.uf!=="" && H.uf!=null) ? ` // UF: ${H.uf} mL` : "";
+      L.push(`  Entradas: ${H.entradas||"—"} mL // Drenos: ${H.drenos||"—"} mL // DU: ${H.du||"—"} mL${ufTxt}`);
+      L.push(`  BH: ${bh===null?"—":(bh>0?"+":"")+bh+" mL"}`);
     }
     // gasometria
     const G = b.gaso||{};
@@ -708,6 +728,26 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
                   ))}
                 </div>
               </div></div>}
+            {isOstomia(inv.nome) &&
+              <div className="row"><div>
+                <label>Localização</label>
+                <div className="opts">
+                  {ABD_REGIOES.map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {isOutra(inv.nome) &&
+              <div className="row"><div>
+                <label>Localização (tórax → abdome)</label>
+                <div className="opts">
+                  {SITE_AMPLO.map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
             {(isAbdDrain(inv.nome) || isThoraxDrain(inv.nome)) &&
               <div className="row"><div>
                 <label>Montagem</label>
@@ -735,6 +775,15 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
                 </div>
                 <div><label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: liquórico claro"/></div>
               </div>}
+            {isSngSifon(inv.nome) &&
+              <div className="row c2">
+                <div><label>Resíduo/débito 24h (mL)</label><input type="number" inputMode="numeric" value={inv.debito} onChange={e=>setInv(i,{debito:e.target.value})}/></div>
+                <div><label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: borráceo"/></div>
+              </div>}
+            {isOstomia(inv.nome) &&
+              <div className="row"><div>
+                <label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: fezes formadas"/>
+              </div></div>}
             {isDVE(inv.nome) &&
               <div className={"dve-flag"+(inv.questionarRetirada?" on":"")}>
                 <button onClick={()=>setInv(i,{questionarRetirada: !inv.questionarRetirada})}>
@@ -777,9 +826,20 @@ function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
         </div>
         <div className="row c3" style={{marginTop:6}}>
           <div><label>Evacuações</label><input value={H.evac} onChange={e=>setH24("evac", e.target.value)} placeholder="31/07"/></div>
-          <div><label>DU (mL)</label><input value={H.du} onChange={e=>setH24("du", e.target.value)} placeholder="2400"/></div>
-          <div><label>BH</label><input value={H.bh} onChange={e=>setH24("bh", e.target.value)} placeholder="+500"/></div>
+          <div><label>Entradas (mL)</label><input type="number" inputMode="numeric" value={H.entradas} onChange={e=>setH24("entradas", e.target.value)} placeholder="3200"/></div>
+          <div><label>Drenos (mL)</label><input type="number" inputMode="numeric" value={H.drenos} onChange={e=>setH24("drenos", e.target.value)} placeholder="200"/></div>
         </div>
+        <div className="row c3" style={{marginTop:6}}>
+          <div><label>DU (mL)</label><input type="number" inputMode="numeric" value={H.du} onChange={e=>setH24("du", e.target.value)} placeholder="2400"/></div>
+          <div><label>UF diálise (mL)</label><input type="number" inputMode="numeric" value={H.uf} onChange={e=>setH24("uf", e.target.value)} placeholder="vazio = não dialisou"/></div>
+          <div>
+            <label>BH (calculado)</label>
+            {(()=>{ const bh=calcBH(H); return (
+              <div className="bh-box">{bh===null ? "—" : (bh>0?"+":"")+bh+" mL"}</div>
+            ); })()}
+          </div>
+        </div>
+        <div className="ref-note" style={{marginTop:2}}>BH = Entradas − Drenos − DU − UF (vazio = não entra; 0 digitado entra como zero)</div>
       </div>
 
       {/* gasometria */}
