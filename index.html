@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ronda CTI">
+<title>Ronda CTI</title>
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Ronda%20CTI%22%2C%22short_name%22%3A%22Ronda%20CTI%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230d1b2a%22%2C%22theme_color%22%3A%22%230d1b2a%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%2520192%2520192%2522%253E%253Crect%2520width%253D%2522192%2522%2520height%253D%2522192%2522%2520rx%253D%252242%2522%2520fill%253D%2522%25230d1b2a%2522%252F%253E%253Cpath%2520d%253D%2522M30%252096%2520h30%2520l14%2520-40%2520l24%252080%2520l16%2520-52%2520l12%252012%2520h36%2522%2520fill%253D%2522none%2522%2520stroke%253D%2522%252364d2b3%2522%2520stroke-width%253D%252210%2522%2520stroke-linejoin%253D%2522round%2522%2520stroke-linecap%253D%2522round%2522%252F%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<style>
+  :root{
+    --bg:#0d1b2a; --panel:#12263a; --panel2:#183149; --line:#24425f;
+    --ink:#e8f1f8; --muted:#8fb0c9; --accent:#64d2b3; --accent2:#3fa5ff;
+    --warn:#ffb454; --danger:#ff6b6b; --ok:#64d2b3;
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; overscroll-behavior-y:none;}
+  #root{min-height:100vh; padding-bottom:calc(env(safe-area-inset-bottom) + 34px);}
+  button{font-family:inherit; cursor:pointer; border:none; color:inherit; background:none;}
+  input,select,textarea{font-family:inherit; font-size:16px; color:var(--ink);
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px;
+    padding:10px 12px; width:100%; outline:none;}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent2);}
+  textarea{resize:vertical; min-height:52px;}
+  label{font-size:12px; color:var(--muted); display:block; margin-bottom:4px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.04em;}
+  .app-header{position:sticky; top:0; z-index:20; background:rgba(13,27,42,.92);
+    backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px; display:flex;
+    align-items:center; gap:12px;}
+  .app-header h1{margin:0; font-size:18px; font-weight:700; letter-spacing:.02em;}
+  .app-header .sub{font-size:11px; color:var(--muted); font-weight:500;}
+  .tabbar{display:flex; gap:6px; margin-left:auto;}
+  .tabbar button{padding:8px 14px; border-radius:10px; font-size:13px; font-weight:600;
+    color:var(--muted); background:var(--panel);}
+  .tabbar button.active{color:var(--bg); background:var(--accent);}
+  .wrap{padding:16px; max-width:760px; margin:0 auto;}
+  .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  .bed-card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px; text-align:left; position:relative; min-height:96px; display:flex;
+    flex-direction:column; gap:6px; transition:transform .06s;}
+  .bed-card:active{transform:scale(.98);}
+  .bed-card .num{font-size:26px; font-weight:800; line-height:1;}
+  .bed-card.empty{border-style:dashed; opacity:.72;}
+  .bed-card .status{font-size:12px; color:var(--muted); font-weight:600;}
+  .bed-card .chip{position:absolute; top:12px; right:12px; font-size:10px; font-weight:700;
+    padding:3px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:.03em;}
+  .chip.pend{background:rgba(255,180,84,.16); color:var(--warn);}
+  .chip.done{background:rgba(100,210,179,.16); color:var(--ok);}
+  .chip.free{background:rgba(143,176,201,.14); color:var(--muted);}
+  .bed-card .line{font-size:12px; color:var(--accent); font-weight:600; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;}
+  .section{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    padding:14px; margin-bottom:12px;}
+  .section h2{margin:0 0 12px; font-size:14px; font-weight:700; display:flex; align-items:center;
+    gap:8px; letter-spacing:.02em;}
+  .section h2 .badge{margin-left:auto; font-size:11px; font-weight:700; padding:3px 9px;
+    border-radius:20px;}
+  .row{display:grid; gap:10px; margin-bottom:10px;}
+  .row.c2{grid-template-columns:1fr 1fr;}
+  .row.c3{grid-template-columns:1fr 1fr 1fr;}
+  .row.c4{grid-template-columns:1fr 1fr 1fr 1fr;}
+  .backbtn{font-size:22px; font-weight:700; padding:2px 6px; color:var(--accent);}
+  .btn{padding:12px 16px; border-radius:12px; font-size:15px; font-weight:700; text-align:center;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%;}
+  .btn.primary{background:var(--accent); color:var(--bg);}
+  .btn.blue{background:var(--accent2); color:#04121f;}
+  .btn.ghost{background:var(--panel2); color:var(--ink); border:1px solid var(--line);}
+  .btn.danger{background:rgba(255,107,107,.14); color:var(--danger); border:1px solid rgba(255,107,107,.3);}
+  .btn.sm{padding:8px 12px; font-size:13px; width:auto;}
+  .seg{display:flex; gap:6px; background:var(--panel2); padding:4px; border-radius:12px;}
+  .seg button{flex:1; padding:9px; border-radius:9px; font-size:13px; font-weight:700; color:var(--muted);}
+  .seg button.on-ok{background:var(--ok); color:var(--bg);}
+  .seg button.on-pend{background:var(--warn); color:#3a2400;}
+  .seg button.on-na{background:var(--line); color:var(--ink);}
+  .check-item{border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; background:var(--panel2);}
+  .check-item .top{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .check-item .top .n{width:24px; height:24px; border-radius:7px; background:var(--panel);
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+    color:var(--accent); flex-shrink:0;}
+  .check-item .top .t{font-size:14px; font-weight:700;}
+  .inv{border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; background:var(--panel2);}
+  .inv .head{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .inv .head .name{font-size:14px; font-weight:700; flex:1;}
+  .inv .head .cat{font-size:10px; font-weight:700; color:var(--accent2); text-transform:uppercase;
+    background:rgba(63,165,255,.12); padding:2px 7px; border-radius:20px;}
+  .inv .head .dias{font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px;
+    background:rgba(143,176,201,.14); color:var(--muted);}
+  .inv .head .dias.alert{background:rgba(255,107,107,.18); color:var(--danger);}
+  .inv.alert{border-color:rgba(255,107,107,.5);}
+  .dve-flag{display:flex; align-items:center; gap:8px; margin-top:10px; padding:10px;
+    border-radius:10px; background:var(--panel); border:1px solid var(--line);}
+  .dve-flag.on{background:rgba(255,180,84,.14); border-color:var(--warn);}
+  .dve-flag button{flex:1; text-align:left; font-size:13px; font-weight:700; color:var(--muted);}
+  .dve-flag.on button{color:var(--warn);}
+  .ref-note{font-size:11px; color:var(--muted); margin-top:4px; font-style:italic;}
+  .bh-box{background:var(--panel2); border:1px solid var(--accent); border-radius:10px;
+    padding:10px 12px; font-size:18px; font-weight:800; color:var(--accent); text-align:center;}
+  .inv .del{color:var(--danger); font-size:18px; padding:2px 6px;}
+  .infusion{display:grid; grid-template-columns:1fr 88px auto; gap:8px; align-items:end; margin-bottom:8px;}
+  .infusion .del{color:var(--danger); font-size:18px; padding:8px 4px;}
+  .addrow{display:flex; gap:8px; align-items:center; margin-top:8px;}
+  .modal-bg{position:fixed; inset:0; background:rgba(4,10,18,.72); z-index:50; display:flex;
+    align-items:flex-end; justify-content:center;}
+  .modal{background:var(--panel); border:1px solid var(--line); border-radius:20px 20px 0 0;
+    width:100%; max-width:760px; max-height:82vh; overflow-y:auto;
+    padding:18px 16px calc(env(safe-area-inset-bottom) + 18px);}
+  .modal h3{margin:0 0 14px; font-size:16px;}
+  .catgroup{margin-bottom:14px;}
+  .catgroup .lbl{font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; margin-bottom:6px;}
+  .opts{display:flex; flex-wrap:wrap; gap:6px;}
+  .opts button{background:var(--panel2); border:1px solid var(--line); padding:9px 12px;
+    border-radius:10px; font-size:13px; font-weight:600;}
+  .opts button:active{background:var(--accent); color:var(--bg);}
+  .opts button.site-on{background:var(--accent2); color:#04121f; border-color:var(--accent2);}
+  .empty-note{color:var(--muted); font-size:13px; text-align:center; padding:16px 8px; font-style:italic;}
+  .calc-out{background:var(--panel2); border:1px solid var(--accent); border-radius:12px;
+    padding:16px; text-align:center; margin-top:14px;}
+  .calc-out .big{font-size:32px; font-weight:800; color:var(--accent);}
+  .calc-out .unit{font-size:14px; color:var(--muted); font-weight:600;}
+  .hint{font-size:12px; color:var(--muted); margin-top:4px;}
+  .spacer{height:44px;}
+  .toast{position:fixed; bottom:calc(env(safe-area-inset-bottom) + 20px); left:50%;
+    transform:translateX(-50%); background:var(--accent); color:var(--bg); padding:12px 20px;
+    border-radius:24px; font-weight:700; font-size:14px; z-index:80; box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .divider{height:1px; background:var(--line); margin:14px 0;}
+  .watermark{position:fixed; left:0; right:0; bottom:0; z-index:15;
+    padding:8px 12px calc(env(safe-area-inset-bottom) + 8px);
+    text-align:center; font-size:11px; color:var(--muted);
+    background:rgba(13,27,42,.92); backdrop-filter:blur(8px);
+    border-top:1px solid var(--line); letter-spacing:.02em; font-weight:500;}
+  .flex{display:flex; gap:8px;}
+  .flex.wrap{flex-wrap:wrap;}
+  .mini{font-size:12px; color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ---------- persistence ---------- */
+const KEY = "ronda_cti_v1";
+const NBEDS = 10;
+function emptyBed(n){ return { num:n, occupied:false }; }
+function freshPatient(){
+  return {
+    peso:"", idade:"", sexo:"", creat:"",
+    modo:"", fio2:"", peep:"", fr:"", vc:"", pi:"", psup:"", fluxo:"",
+    infusoes:[], invasoes:[], pend:"",
+    vitais:{ pa:"", fc:"", sat:"", tax:"" },
+    h24:{ tax:"", taxObs:"", pasMin:"", pasMax:"", padMin:"", padMax:"",
+          frMin:"", frMax:"", gliMin:"", gliMax:"", gliObs:"",
+          evac:"", entradas:"", drenos:"", du:"", uf:"" },
+    gaso:{ ph:"", pco2:"", po2:"", lac:"", hco3:"", sao2:"", pf:"" },
+    check:{ inv:"", prof:"", analg:"", atb:"", lab:"", rx:"" },
+    checkNote:{ inv:"", prof:"", analg:"", atb:"", lab:"", rx:"" },
+  };
+}
+// CKD-EPI 2021 (sem termo de raca). Cr em mg/dL, idade em anos, sexo "F"/"M".
+// retorna {tfg, classe} ou null
+function ckdEpi2021(cr, idade, sexo){
+  const c = parseFloat(String(cr).replace(",",".")), a = parseFloat(idade);
+  if(!(c>0) || !(a>0) || (sexo!=="F" && sexo!=="M")) return null;
+  const fem = sexo==="F";
+  const k = fem ? 0.7 : 0.9;
+  const alpha = fem ? -0.241 : -0.302;
+  const ratio = c/k;
+  const tfg = 142
+    * Math.pow(Math.min(ratio,1), alpha)
+    * Math.pow(Math.max(ratio,1), -1.200)
+    * Math.pow(0.9938, a)
+    * (fem ? 1.012 : 1);
+  let classe;
+  if(tfg>=90) classe="G1";
+  else if(tfg>=60) classe="G2";
+  else if(tfg>=45) classe="G3a";
+  else if(tfg>=30) classe="G3b";
+  else if(tfg>=15) classe="G4";
+  else classe="G5";
+  return { tfg: Math.round(tfg), classe };
+}
+// campos de parametro por modo ventilatorio
+function ventFields(modo){
+  switch(modo){
+    case "VCV": return ["vc","fr","peep","fio2"];
+    case "PCV": return ["pi","vc","fr","peep","fio2"];
+    case "PSV": return ["psup","vc","fr","peep","fio2"];
+    case "VNI": return ["psup","peep","fio2"];
+    case "CNAF": return ["fluxo","fio2"];
+    case "Máscara/Cateter O₂": return ["fluxo"];
+    default: return [];  // Ar ambiente, Extubado, vazio
+  }
+}
+const VENT_LABELS = { vc:"VC", fr:"FR", peep:"PEEP", fio2:"FiO₂ %", pi:"PI", psup:"Psup", fluxo:"Fluxo (L/min)" };
+// balanco hidrico: Entradas - Drenos - DU - UF. Campo vazio = ausente (nao entra); "0" digitado entra como 0.
+function calcBH(H){
+  if(!H) return null;
+  const keys = ["entradas","drenos","du","uf"];
+  const anyFilled = keys.some(k => H[k]!=="" && H[k]!=null);
+  if(!anyFilled) return null;
+  const num = (v)=> (v==="" || v==null || isNaN(parseFloat(v))) ? 0 : parseFloat(v);
+  return Math.round(num(H.entradas) - num(H.drenos) - num(H.du) - num(H.uf));
+}
+function load(){
+  try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){}
+  return Array.from({length:NBEDS}, (_,i)=>emptyBed(i+1));
+}
+function save(beds){ try{ localStorage.setItem(KEY, JSON.stringify(beds)); }catch(e){} }
+
+/* ---------- invasion catalog ---------- */
+const CATALOG = [
+  { cat:"Via aérea", items:["TOT","TQT"] },
+  { cat:"Vascular", items:["CVC","PICC","PAI","Acesso periférico","CDL"] },
+  { cat:"Neuro", items:["DVE","Cateter de PIC","DVP/DLP"] },
+  { cat:"Drenos", items:["Hemovac","Dreno de cavidade","Dreno tubular/laminar","Dreno torácico"] },
+  { cat:"Urinário / digestivo", items:["SVD","SNE/SNG","SNG em sifonagem","Ostomia"] },
+];
+const DRAIN_TYPES = ["Hemovac","Dreno de cavidade","Dreno tubular/laminar","Dreno torácico"];
+function catOf(name){
+  for(const g of CATALOG){ if(g.items.includes(name)) return g.cat; }
+  return "Outra";
+}
+function isDrain(name){ return DRAIN_TYPES.includes(name); }
+function isDVE(name){ return name==="DVE"; }
+function isOstomia(name){ return name==="Ostomia"; }
+function isSngSifon(name){ return name==="SNG em sifonagem"; }
+function isOutra(name){ return catOf(name)==="Outra"; }  // dispositivo digitado pelo usuario
+
+// sitio abdominal (9 regioes + posicoes cirurgicas opcionais)
+const ABD_REGIOES = ["Hipocôndrio D","Epigástrio","Hipocôndrio E","Flanco D","Mesogástrio","Flanco E","Fossa ilíaca D","Hipogástrio","Fossa ilíaca E"];
+const ABD_CIRURGICAS = ["Subhepático","Subfrênico D","Subfrênico E","Pélvico/fundo de saco","Leito cirúrgico","Parietocólica D","Parietocólica E"];
+const TORAX_SITIOS = ["Hemitórax D","Hemitórax E","Anterior","Posterior","Basal","Apical"];
+// seletor amplo (torax -> abdome) para dispositivos "Outra", selecao unica
+const SITE_AMPLO = [...TORAX_SITIOS, ...ABD_REGIOES, ...ABD_CIRURGICAS];
+const MONTAGENS = ["Selo d'água","Pigtail","Aspiração contínua","Bolsa/gravidade"];
+const ABD_DRAINS = ["Hemovac","Dreno de cavidade","Dreno tubular/laminar"];
+function isAbdDrain(name){ return ABD_DRAINS.includes(name); }
+function isThoraxDrain(name){ return name==="Dreno torácico"; }
+
+// contagem de dias de dispositivo + alertas
+const PUNCAO_PROFUNDA = ["CVC","PICC"];  // regra 14 dias (CDL fica de fora)
+function diasDe(dataStr){
+  if(!dataStr) return null;
+  const d = new Date(dataStr + "T00:00:00");
+  if(isNaN(d)) return null;
+  const hoje = new Date();
+  const h0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.floor((h0 - d0) / 86400000);
+}
+// retorna {dias, alerta:boolean} para o dispositivo, ou null se nao aplicavel
+function statusDispositivo(inv){
+  const dias = diasDe(inv.data);
+  if(dias===null) return null;
+  let alerta = false;
+  if(inv.nome==="TOT" && dias>10) alerta = true;
+  if(PUNCAO_PROFUNDA.includes(inv.nome) && dias>14) alerta = true;
+  return { dias, alerta };
+}
+
+// sitios de insercao para CVC e PAI
+const SITE_OPTS = {
+  "CVC": ["VSCE","VSCD","VJID","VJIE","VFE","VFD"],
+  "CDL": ["VSCE","VSCD","VJID","VJIE","VFE","VFD"],
+  "PAI": ["ARE","ARD","Braquial E","Braquial D","AFE","AFD"],
+};
+function hasSite(name){ return !!SITE_OPTS[name]; }
+
+/* ---------- drug library (concentracoes finais do CTI) ---------- */
+// conc = concentracao FINAL da solucao na unidade indicada por concUnit
+// doseUnits = unidades de dose a exibir. weight:true => usa peso.
+// concUnit define como converter vazao (mL/h) -> massa/tempo
+const DRUGS = [
+  { nome:"Noradrenalina", conc:200, concUnit:"mcg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Nipride (nitroprussiato)", conc:200, concUnit:"mcg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Dobutamina", conc:12.5, concUnit:"mg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Dopamina", conc:5, concUnit:"mg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Nitroglicerina", conc:100, concUnit:"mcg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Vasopressina", conc:0.2, concUnit:"UI/mL", doses:[{u:"UI/min", weight:false}] },
+  { nome:"Amiodarona", conc:3.6, concUnit:"mg/mL", doses:[{u:"mg/h", weight:false}] },
+  { nome:"Cisatracúrio", conc:2, concUnit:"mg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Rocurônio", conc:5, concUnit:"mg/mL", doses:[{u:"mcg/kg/min", weight:true}] },
+  { nome:"Propofol", conc:10, concUnit:"mg/mL", doses:[{u:"mcg/kg/min", weight:true},{u:"mg/kg/h", weight:true}] },
+  { nome:"Midazolam", conc:5, concUnit:"mg/mL", doses:[{u:"mg/h", weight:false},{u:"mcg/kg/min", weight:true}] },
+  { nome:"Dexmedetomidina", conc:4, concUnit:"mcg/mL", doses:[{u:"mcg/kg/h", weight:true}] },
+  { nome:"Fentanila", conc:50, concUnit:"mcg/mL", doses:[{u:"mcg/h", weight:false},{u:"mcg/kg/h", weight:true}] },
+  { nome:"Morfina", conc:1, concUnit:"mg/mL", doses:[{u:"mg/h", weight:false},{u:"mcg/kg/h", weight:true}] },
+];
+// converte vazao (mL/h) + concentracao -> dose na unidade pedida
+// concMcgPerMl: concentracao normalizada em mcg/mL (para mg) ou unidade nativa p/ UI
+function computeDose(mlh, conc, concUnit, doseU, peso){
+  if(!(mlh>0) || !(conc>0)) return null;
+  // massa por hora na unidade base
+  if(concUnit==="UI/mL"){
+    const uiPerH = mlh*conc;               // UI/h
+    if(doseU==="UI/min") return uiPerH/60;
+    if(doseU==="UI/h") return uiPerH;
+    return null;
+  }
+  // normaliza para mcg/h
+  let mcgPerH;
+  if(concUnit==="mcg/mL") mcgPerH = mlh*conc;
+  else if(concUnit==="mg/mL") mcgPerH = mlh*conc*1000;
+  else return null;
+  const w = peso>0 ? peso : null;
+  switch(doseU){
+    case "mcg/kg/min": return w? (mcgPerH/60)/w : null;
+    case "mcg/kg/h":   return w? mcgPerH/w : null;
+    case "mcg/h":      return mcgPerH;
+    case "mcg/min":    return mcgPerH/60;
+    case "mg/h":       return mcgPerH/1000;
+    case "mg/kg/h":    return w? (mcgPerH/1000)/w : null;
+    case "mg/kg/min":  return w? (mcgPerH/1000/60)/w : null;
+    default: return null;
+  }
+}
+
+const MODOS = ["VCV","PCV","PSV","VNI","CNAF","Máscara/Cateter O₂","Ar ambiente","Extubado"];
+const CHECK_DEFS = [
+  { k:"inv", n:1, t:"Invasões e drippings" },
+  { k:"prof", n:2, t:"Profilaxias: TEV e LAMG" },
+  { k:"analg", n:3, t:"Analgesia" },
+  { k:"atb", n:4, t:"ATB (dose batendo?)" },
+  { k:"lab", n:5, t:"Laboratórios" },
+  { k:"rx", n:6, t:"Radiologias" },
+];
+
+/* ---------- app ---------- */
+function App(){
+  const [beds, setBeds] = useState(load);
+  const [view, setView] = useState({ tab:"beds", bed:null });
+  const [toast, setToast] = useState("");
+  useEffect(()=>{ save(beds); }, [beds]);
+  useEffect(()=>{ if(!toast) return; const t=setTimeout(()=>setToast(""),1600); return ()=>clearTimeout(t); }, [toast]);
+
+  function updateBed(num, patch){
+    setBeds(bs => bs.map(b => b.num===num ? {...b, ...patch} : b));
+  }
+  function updatePatient(num, patch){
+    setBeds(bs => bs.map(b => b.num===num ? {...b, ...patch} : b));
+  }
+
+  return (
+    <div>
+      <div className="app-header">
+        <div>
+          <h1>Ronda CTI</h1>
+          <div className="sub">Coleta beira-leito</div>
+        </div>
+        <div className="tabbar">
+          <button className={view.tab==="beds"?"active":""} onClick={()=>setView({tab:"beds",bed:null})}>Leitos</button>
+          <button className={view.tab==="calc"?"active":""} onClick={()=>setView({tab:"calc",bed:null})}>Dose</button>
+        </div>
+      </div>
+
+      {view.tab==="beds" && view.bed===null &&
+        <BedList beds={beds} onOpen={n=>setView({tab:"beds",bed:n})} />}
+
+      {view.tab==="beds" && view.bed!==null &&
+        <BedDetail
+          bed={beds.find(b=>b.num===view.bed)}
+          onBack={()=>setView({tab:"beds",bed:null})}
+          onChange={patch=>updatePatient(view.bed, patch)}
+          onAdmit={()=>{ updateBed(view.bed, {occupied:true, ...freshPatient()}); setToast("Leito admitido"); }}
+          onDischarge={()=>{ updateBed(view.bed, emptyBed(view.bed)); setToast("Leito liberado"); setView({tab:"beds",bed:null}); }}
+        />}
+
+      {view.tab==="calc" && <Calc beds={beds} />}
+
+      <div className="watermark">App desenvolvido por Dr. Matheus Barros — CRM/RJ 1361210</div>
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+/* ---------- bed list ---------- */
+function bedSummary(b){
+  if(!b.occupied) return { chip:"free", label:"Vazio", line:"" };
+  const vals = Object.values(b.check||{});
+  const anyPend = vals.includes("pend");
+  const allTouched = vals.every(v=>v);
+  let chip = "pend", label = "Pendência";
+  if(!anyPend && allTouched){ chip="done"; label="Revisado"; }
+  else if(!anyPend && !allTouched){ chip="pend"; label="Em aberto"; }
+  const inf = (b.infusoes||[]).filter(i=>i.nome).map(i=>i.nome).slice(0,2).join(", ");
+  return { chip, label, line: inf };
+}
+function BedList({beds, onOpen}){
+  const [copied, setCopied] = useState(false);
+  const anyOccupied = beds.some(b=>b.occupied);
+
+  function copyResumo(){
+    const txt = buildResumo(beds);
+    const done = ()=>{ setCopied(true); setTimeout(()=>setCopied(false), 1800); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(done).catch(()=>{ fallbackCopy(txt); done(); });
+    } else { fallbackCopy(txt); done(); }
+  }
+
+  return (
+    <div className="wrap">
+      <div className="grid">
+        {beds.map(b=>{
+          const s = bedSummary(b);
+          return (
+            <button key={b.num} className={"bed-card"+(b.occupied?"":" empty")} onClick={()=>onOpen(b.num)}>
+              <span className={"chip "+s.chip}>{s.label}</span>
+              <span className="num">{b.num}</span>
+              <span className="status">{b.occupied ? "Ocupado" : "Livre"}</span>
+              {s.line && <span className="line">{s.line}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {anyOccupied &&
+        <button className="btn primary" style={{marginTop:16}} onClick={copyResumo}>
+          {copied ? "✓ Copiado!" : "Copiar resumo do plantão"}
+        </button>}
+      <div className="spacer"></div>
+    </div>
+  );
+}
+
+function fallbackCopy(txt){
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+  }catch(e){}
+}
+
+function fmtData(d){
+  if(!d) return "";
+  const p = d.split("-");           // yyyy-mm-dd
+  return p.length===3 ? `${p[2]}/${p[1]}` : d;
+}
+function invLine(inv){
+  const parts = [inv.nome];
+  if(inv.sitio) parts.push(inv.sitio);
+  if(inv.sitios && inv.sitios.length) parts.push(inv.sitios.join("/"));
+  if(isDVE(inv.nome)){
+    parts.push(inv.altura ? `coluna ${inv.altura}` : "coluna —");
+    if(inv.estado) parts.push(inv.estado);
+  }
+  if(inv.montagem) parts.push(inv.montagem);
+  if(inv.debito) parts.push(`${inv.debito} mL`);
+  if(inv.aspecto) parts.push(inv.aspecto);
+  let line = parts.join(" · ");
+  const st = statusDispositivo(inv);
+  if(inv.data) line += ` (${fmtData(inv.data)}`;
+  if(st!==null){ line += inv.data ? `, ${st.dias}d` : ` (${st.dias}d`; if(st.alerta) line += " ⚠"; }
+  if(inv.data || st!==null) line += ")";
+  if(isDVE(inv.nome) && inv.questionarRetirada) line += " — ⚑ QUESTIONAR RETIRADA";
+  return line;
+}
+const CHECK_LABELS = { ok:"OK", pend:"PENDÊNCIA", na:"N/A", "":"—" };
+function buildResumo(beds){
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2,"0");
+  const mm = String(now.getMonth()+1).padStart(2,"0");
+  const hh = String(now.getHours()).padStart(2,"0");
+  const mi = String(now.getMinutes()).padStart(2,"0");
+  const header = `RESUMO DO PLANTÃO — ${dd}/${mm}/${now.getFullYear()} ${hh}:${mi}`;
+  const blocks = [header, ""];
+
+  beds.filter(b=>b.occupied).forEach(b=>{
+    const L = [];
+    L.push(`LEITO ${b.num} — ${b.peso ? b.peso+" kg" : "— kg"}`);
+    // funcao renal
+    const rr = ckdEpi2021(b.creat, b.idade, b.sexo);
+    if(rr) L.push(`TFG (CKD-EPI 2021): ${rr.tfg} mL/min/1,73m² · ${rr.classe}`);
+    // sinais vitais atuais
+    const V = b.vitais||{};
+    if(V.pa||V.fc||V.sat||V.tax){
+      L.push(`Sinais vitais: PA ${V.pa||"—"} · FC ${V.fc||"—"} · Sat ${V.sat||"—"}% · Tax ${V.tax||"—"}°C`);
+    }
+    // ventilacao (parametros conforme modo)
+    const vent = b.modo || "—";
+    const vf = ventFields(b.modo);
+    let vparams;
+    if(vf.length){
+      vparams = vf.map(f=>`${VENT_LABELS[f].replace(" %","")} ${b[f]||"—"}`).join(" / ");
+    } else {
+      vparams = "sem parâmetros";
+    }
+    L.push(`Ventilação: ${vent}${vf.length?` — ${vparams}`:` — ${vparams}`}`);
+    // infusoes
+    const infs = (b.infusoes||[]).filter(i=>i.nome||i.vazao);
+    if(infs.length){
+      L.push("Infusões: " + infs.map(i=>`${i.nome||"—"} ${i.vazao||"—"} mL/h`).join("; "));
+    } else {
+      L.push("Infusões: —");
+    }
+    // invasoes
+    const invs = (b.invasoes||[]);
+    if(invs.length){
+      L.push("Invasões:");
+      invs.forEach(inv=> L.push(`- ${invLine(inv)}`));
+    } else {
+      L.push("Invasões: —");
+    }
+    // ultimas 24h
+    const H = b.h24||{};
+    const has24 = Object.values(H).some(v=>v);
+    if(has24){
+      L.push("Últimas 24h:");
+      L.push(`  Temperatura: ${H.tax||"—"}${H.taxObs?` (${H.taxObs})`:""}`);
+      L.push(`  Hemodinâmica: PAS ${H.pasMin||"—"}-${H.pasMax||"—"} / PAD ${H.padMin||"—"}-${H.padMax||"—"}`);
+      L.push(`  Respiratório: ${H.frMin||"—"}-${H.frMax||"—"}`);
+      L.push(`  Glicemia: ${H.gliMin||"—"}-${H.gliMax||"—"}${H.gliObs?` (${H.gliObs})`:""}`);
+      L.push(`  Evacuações: ${H.evac||"—"}`);
+      const bh = calcBH(H);
+      const ufTxt = (H.uf!=="" && H.uf!=null) ? ` // UF: ${H.uf} mL` : "";
+      L.push(`  Entradas: ${H.entradas||"—"} mL // Drenos: ${H.drenos||"—"} mL // DU: ${H.du||"—"} mL${ufTxt}`);
+      L.push(`  BH: ${bh===null?"—":(bh>0?"+":"")+bh+" mL"}`);
+    }
+    // gasometria
+    const G = b.gaso||{};
+    const hasGaso = Object.values(G).some(v=>v);
+    if(hasGaso){
+      L.push(`Gaso: pH ${G.ph||"—"} · pCO₂ ${G.pco2||"—"} · pO₂ ${G.po2||"—"} · Lac ${G.lac||"—"} · HCO₃ ${G.hco3||"—"} · SatO₂ ${G.sao2||"—"} · P/F ${G.pf||"—"}`);
+    }
+    // checklist
+    const c = b.check||{}; const cn = b.checkNote||{};
+    const ck = (k,lbl)=>{
+      let s = `${lbl} ${CHECK_LABELS[c[k]||""]}`;
+      if(cn[k]) s += ` (${cn[k]})`;
+      return s;
+    };
+    L.push("Checklist: " + [
+      ck("inv","Invasões"), ck("prof","Profilaxias"), ck("analg","Analgesia"),
+      ck("atb","ATB"), ck("lab","Labs"), ck("rx","RX")
+    ].join(" · "));
+    // pendencias
+    L.push(`Pendências: ${b.pend ? b.pend : "—"}`);
+    blocks.push(L.join("\n"));
+    blocks.push("");
+  });
+
+  blocks.push("—".repeat(3));
+  blocks.push("App desenvolvido por Dr. Matheus Barros — CRM/RJ 1361210");
+  return blocks.join("\n");
+}
+
+/* ---------- bed detail ---------- */
+function BedDetail({bed, onBack, onChange, onAdmit, onDischarge}){
+  const [showInv, setShowInv] = useState(false);
+  if(!bed.occupied){
+    return (
+      <div className="wrap">
+        <div className="flex" style={{alignItems:"center", marginBottom:16}}>
+          <button className="backbtn" onClick={onBack}>‹</button>
+          <h2 style={{margin:0, fontSize:18}}>Leito {bed.num}</h2>
+        </div>
+        <div className="section" style={{textAlign:"center", padding:"32px 16px"}}>
+          <div style={{fontSize:44, fontWeight:800, marginBottom:8}}>{bed.num}</div>
+          <p className="mini" style={{marginBottom:20}}>Leito livre. Admita um paciente para começar a ronda.</p>
+          <button className="btn primary" onClick={onAdmit}>+ Admitir paciente</button>
+        </div>
+      </div>
+    );
+  }
+
+  const set = (patch)=>onChange(patch);
+  const setCheck = (k,v)=> set({ check: {...bed.check, [k]: bed.check[k]===v ? "" : v} });
+  const setCheckNote = (k,v)=> set({ checkNote: {...bed.checkNote, [k]: v} });
+  const setVital = (k,v)=> set({ vitais: {...(bed.vitais||{}), [k]: v} });
+  const setH24 = (k,v)=> set({ h24: {...(bed.h24||{}), [k]: v} });
+  const setGaso = (k,v)=> set({ gaso: {...(bed.gaso||{}), [k]: v} });
+  const V = bed.vitais||{}; const H = bed.h24||{}; const G = bed.gaso||{};
+
+  // infusions
+  const addInf = ()=> set({ infusoes:[...(bed.infusoes||[]), {nome:"", vazao:""}] });
+  const setInf = (i,patch)=> set({ infusoes: bed.infusoes.map((x,idx)=> idx===i?{...x,...patch}:x) });
+  const delInf = (i)=> set({ infusoes: bed.infusoes.filter((_,idx)=>idx!==i) });
+
+  // invasions
+  const addInv = (name)=>{ set({ invasoes:[...(bed.invasoes||[]), {nome:name, data:"", sitio:"", sitios:[], montagem:"", altura:"", estado:"", debito:"", aspecto:""}] }); setShowInv(false); };
+  const setInv = (i,patch)=> set({ invasoes: bed.invasoes.map((x,idx)=> idx===i?{...x,...patch}:x) });
+  const delInv = (i)=> set({ invasoes: bed.invasoes.filter((_,idx)=>idx!==i) });
+
+  return (
+    <div className="wrap">
+      <div className="flex" style={{alignItems:"center", marginBottom:16}}>
+        <button className="backbtn" onClick={onBack}>‹</button>
+        <h2 style={{margin:0, fontSize:18}}>Leito {bed.num}</h2>
+        <button className="btn danger sm" style={{marginLeft:"auto"}} onClick={()=>{
+          if(confirm("Dar alta / óbito? Isso limpa os dados deste leito.")) onDischarge();
+        }}>Alta / óbito</button>
+      </div>
+
+      {/* identificação */}
+      <div className="section">
+        <h2>Identificação</h2>
+        <div className="row c4">
+          <div><label>Peso (kg)</label><input type="number" inputMode="decimal" value={bed.peso} onChange={e=>set({peso:e.target.value})} placeholder="72"/></div>
+          <div><label>Idade</label><input type="number" inputMode="numeric" value={bed.idade} onChange={e=>set({idade:e.target.value})} placeholder="anos"/></div>
+          <div>
+            <label>Sexo</label>
+            <div className="seg">
+              <button className={bed.sexo==="M"?"on-na":""} onClick={()=>set({sexo: bed.sexo==="M"?"":"M"})}>M</button>
+              <button className={bed.sexo==="F"?"on-na":""} onClick={()=>set({sexo: bed.sexo==="F"?"":"F"})}>F</button>
+            </div>
+          </div>
+          <div><label>Creat (mg/dL)</label><input type="number" inputMode="decimal" value={bed.creat} onChange={e=>set({creat:e.target.value})} placeholder="1,0"/></div>
+        </div>
+        {(()=>{ const r=ckdEpi2021(bed.creat, bed.idade, bed.sexo); return r &&
+          <div className="calc-out" style={{marginTop:4, padding:"12px"}}>
+            <div className="big" style={{fontSize:24}}>{r.tfg} <span style={{fontSize:14, color:"var(--muted)"}}>mL/min/1,73m²</span></div>
+            <div className="unit">TFG (CKD-EPI 2021) · {r.classe}</div>
+          </div>; })()}
+      </div>
+
+      {/* sinais vitais atuais */}
+      <div className="section">
+        <h2>Sinais vitais</h2>
+        <div className="row c4">
+          <div><label>PA (mmHg)</label><input value={V.pa} onChange={e=>setVital("pa", e.target.value)} placeholder="120/80"/></div>
+          <div><label>FC (bpm)</label><input type="number" inputMode="numeric" value={V.fc} onChange={e=>setVital("fc", e.target.value)}/></div>
+          <div><label>Sat (%)</label><input type="number" inputMode="numeric" value={V.sat} onChange={e=>setVital("sat", e.target.value)}/></div>
+          <div><label>Tax (°C)</label><input type="number" inputMode="decimal" value={V.tax} onChange={e=>setVital("tax", e.target.value)}/></div>
+        </div>
+      </div>
+
+      {/* ventilação */}
+      <div className="section">
+        <h2>Ventilação</h2>
+        <div className="row"><div>
+          <label>Modo</label>
+          <select value={bed.modo} onChange={e=>set({modo:e.target.value})}>
+            <option value="">—</option>
+            {MODOS.map(m=><option key={m} value={m}>{m}</option>)}
+          </select>
+        </div></div>
+        {ventFields(bed.modo).length>0 &&
+          <div className="row c4">
+            {ventFields(bed.modo).map(f=>(
+              <div key={f}>
+                <label>{VENT_LABELS[f]}</label>
+                <input type="number" inputMode={f==="fio2"||f==="fluxo"?"decimal":"numeric"}
+                  value={bed[f]} onChange={e=>set({[f]: e.target.value})}/>
+              </div>
+            ))}
+          </div>}
+      </div>
+
+      {/* infusões */}
+      <div className="section">
+        <h2>Infusões (drippings)</h2>
+        {(bed.infusoes||[]).length===0 && <div className="empty-note">Nenhuma infusão adicionada</div>}
+        {(bed.infusoes||[]).map((inf,i)=>(
+          <div className="infusion" key={i}>
+            <div><label>Droga</label><input value={inf.nome} onChange={e=>setInf(i,{nome:e.target.value})} placeholder="ex: Noradrenalina"/></div>
+            <div><label>mL/h</label><input type="number" inputMode="decimal" value={inf.vazao} onChange={e=>setInf(i,{vazao:e.target.value})}/></div>
+            <button className="del" onClick={()=>delInf(i)}>✕</button>
+          </div>
+        ))}
+        <button className="btn ghost sm" style={{marginTop:8}} onClick={addInf}>+ Infusão</button>
+      </div>
+
+      {/* invasões */}
+      <div className="section">
+        <h2>Invasões</h2>
+        {(bed.invasoes||[]).length===0 && <div className="empty-note">Nenhuma invasão adicionada</div>}
+        {(bed.invasoes||[]).map((inv,i)=>{
+          const st = statusDispositivo(inv);
+          return (
+          <div className={"inv"+(st&&st.alerta?" alert":"")} key={i}>
+            <div className="head">
+              <span className="name">{inv.nome}</span>
+              <span className="cat">{catOf(inv.nome)}</span>
+              {st!==null && <span className={"dias"+(st.alerta?" alert":"")}>{st.dias}d</span>}
+              <button className="del" onClick={()=>delInv(i)}>✕</button>
+            </div>
+            <div className="row c2">
+              <div><label>Data de inserção</label><input type="date" value={inv.data} onChange={e=>setInv(i,{data:e.target.value})}/></div>
+              {isDVE(inv.nome) &&
+                <div><label>Altura da coluna (cmH₂O)</label><input type="number" inputMode="numeric" value={inv.altura} onChange={e=>setInv(i,{altura:e.target.value})}/></div>}
+            </div>
+            {hasSite(inv.nome) &&
+              <div className="row"><div>
+                <label>Sítio</label>
+                <div className="opts">
+                  {SITE_OPTS[inv.nome].map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {isAbdDrain(inv.nome) &&
+              <div className="row"><div>
+                <label>Região abdominal</label>
+                <div className="opts">
+                  {ABD_REGIOES.map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+                <div className="opts" style={{marginTop:6}}>
+                  {ABD_CIRURGICAS.map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {isThoraxDrain(inv.nome) &&
+              <div className="row"><div>
+                <label>Sítio torácico</label>
+                <div className="opts">
+                  {TORAX_SITIOS.map(s=>(
+                    <button key={s} className={(inv.sitios||[]).includes(s)?"site-on":""}
+                      onClick={()=>{
+                        const cur = inv.sitios||[];
+                        setInv(i,{sitios: cur.includes(s)? cur.filter(x=>x!==s) : [...cur, s]});
+                      }}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {isOstomia(inv.nome) &&
+              <div className="row"><div>
+                <label>Localização</label>
+                <div className="opts">
+                  {ABD_REGIOES.map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {isOutra(inv.nome) &&
+              <div className="row"><div>
+                <label>Localização (tórax → abdome)</label>
+                <div className="opts">
+                  {SITE_AMPLO.map(s=>(
+                    <button key={s} className={inv.sitio===s?"site-on":""}
+                      onClick={()=>setInv(i,{sitio: inv.sitio===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {(isAbdDrain(inv.nome) || isThoraxDrain(inv.nome)) &&
+              <div className="row"><div>
+                <label>Montagem</label>
+                <div className="opts">
+                  {MONTAGENS.map(s=>(
+                    <button key={s} className={inv.montagem===s?"site-on":""}
+                      onClick={()=>setInv(i,{montagem: inv.montagem===s?"":s})}>{s}</button>
+                  ))}
+                </div>
+              </div></div>}
+            {isDVE(inv.nome) &&
+              <div className="row"><div>
+                <label>Estado</label>
+                <div className="seg">
+                  <button className={inv.estado==="aberta"?"on-ok":""} onClick={()=>setInv(i,{estado: inv.estado==="aberta"?"":"aberta"})}>Aberta</button>
+                  <button className={inv.estado==="fechada"?"on-na":""} onClick={()=>setInv(i,{estado: inv.estado==="fechada"?"":"fechada"})}>Fechada</button>
+                </div>
+              </div></div>}
+            {(isDrain(inv.nome) || isDVE(inv.nome)) &&
+              <div className="row c2">
+                <div>
+                  <label>Débito 24h (mL)</label>
+                  <input type="number" inputMode="numeric" value={inv.debito} onChange={e=>setInv(i,{debito:e.target.value})}/>
+                  {isDVE(inv.nome) && <div className="ref-note">Referência de desmame: &lt; 250 mL/24h (critério institucional, não universal)</div>}
+                </div>
+                <div><label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: liquórico claro"/></div>
+              </div>}
+            {isSngSifon(inv.nome) &&
+              <div className="row c2">
+                <div><label>Resíduo/débito 24h (mL)</label><input type="number" inputMode="numeric" value={inv.debito} onChange={e=>setInv(i,{debito:e.target.value})}/></div>
+                <div><label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: borráceo"/></div>
+              </div>}
+            {isOstomia(inv.nome) &&
+              <div className="row"><div>
+                <label>Aspecto</label><input value={inv.aspecto} onChange={e=>setInv(i,{aspecto:e.target.value})} placeholder="ex: fezes formadas"/>
+              </div></div>}
+            {isDVE(inv.nome) &&
+              <div className={"dve-flag"+(inv.questionarRetirada?" on":"")}>
+                <button onClick={()=>setInv(i,{questionarRetirada: !inv.questionarRetirada})}>
+                  {inv.questionarRetirada ? "⚑ Questionar retirada (marcado)" : "○ Questionar retirada?"}
+                </button>
+              </div>}
+          </div>
+          );
+        })}
+        <button className="btn ghost sm" style={{marginTop:8}} onClick={()=>setShowInv(true)}>+ Invasão</button>
+      </div>
+
+      {/* últimas 24h */}
+      <div className="section">
+        <h2>Últimas 24h</h2>
+        <div className="row c2">
+          <div><label>Temperatura</label><input value={H.tax} onChange={e=>setH24("tax", e.target.value)} placeholder="38,0"/></div>
+          <div><label>Obs. temp (ex: 3X)</label><input value={H.taxObs} onChange={e=>setH24("taxObs", e.target.value)} placeholder="3X"/></div>
+        </div>
+        <label style={{marginTop:6}}>Hemodinâmica — PAS (mín / máx)</label>
+        <div className="row c2">
+          <div><input type="number" inputMode="numeric" value={H.pasMin} onChange={e=>setH24("pasMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.pasMax} onChange={e=>setH24("pasMax", e.target.value)} placeholder="máx"/></div>
+        </div>
+        <label style={{marginTop:6}}>PAD (mín / máx)</label>
+        <div className="row c2">
+          <div><input type="number" inputMode="numeric" value={H.padMin} onChange={e=>setH24("padMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.padMax} onChange={e=>setH24("padMax", e.target.value)} placeholder="máx"/></div>
+        </div>
+        <label style={{marginTop:6}}>Respiratório — FR (mín / máx)</label>
+        <div className="row c2">
+          <div><input type="number" inputMode="numeric" value={H.frMin} onChange={e=>setH24("frMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.frMax} onChange={e=>setH24("frMax", e.target.value)} placeholder="máx"/></div>
+        </div>
+        <label style={{marginTop:6}}>Glicemia (mín / máx / obs)</label>
+        <div className="row c3">
+          <div><input type="number" inputMode="numeric" value={H.gliMin} onChange={e=>setH24("gliMin", e.target.value)} placeholder="mín"/></div>
+          <div><input type="number" inputMode="numeric" value={H.gliMax} onChange={e=>setH24("gliMax", e.target.value)} placeholder="máx"/></div>
+          <div><input value={H.gliObs} onChange={e=>setH24("gliObs", e.target.value)} placeholder="34UI"/></div>
+        </div>
+        <div className="row c3" style={{marginTop:6}}>
+          <div><label>Evacuações</label><input value={H.evac} onChange={e=>setH24("evac", e.target.value)} placeholder="31/07"/></div>
+          <div><label>Entradas (mL)</label><input type="number" inputMode="numeric" value={H.entradas} onChange={e=>setH24("entradas", e.target.value)} placeholder="3200"/></div>
+          <div><label>Drenos (mL)</label><input type="number" inputMode="numeric" value={H.drenos} onChange={e=>setH24("drenos", e.target.value)} placeholder="200"/></div>
+        </div>
+        <div className="row c3" style={{marginTop:6}}>
+          <div><label>DU (mL)</label><input type="number" inputMode="numeric" value={H.du} onChange={e=>setH24("du", e.target.value)} placeholder="2400"/></div>
+          <div><label>UF diálise (mL)</label><input type="number" inputMode="numeric" value={H.uf} onChange={e=>setH24("uf", e.target.value)} placeholder="vazio = não dialisou"/></div>
+          <div>
+            <label>BH (calculado)</label>
+            {(()=>{ const bh=calcBH(H); return (
+              <div className="bh-box">{bh===null ? "—" : (bh>0?"+":"")+bh+" mL"}</div>
+            ); })()}
+          </div>
+        </div>
+        <div className="ref-note" style={{marginTop:2}}>BH = Entradas − Drenos − DU − UF (vazio = não entra; 0 digitado entra como zero)</div>
+      </div>
+
+      {/* gasometria */}
+      <div className="section">
+        <h2>Gasometria</h2>
+        <div className="row c4">
+          <div><label>pH</label><input type="number" inputMode="decimal" value={G.ph} onChange={e=>setGaso("ph", e.target.value)} placeholder="7,40"/></div>
+          <div><label>pCO₂</label><input type="number" inputMode="decimal" value={G.pco2} onChange={e=>setGaso("pco2", e.target.value)}/></div>
+          <div><label>pO₂</label><input type="number" inputMode="decimal" value={G.po2} onChange={e=>setGaso("po2", e.target.value)}/></div>
+          <div><label>Lac</label><input type="number" inputMode="decimal" value={G.lac} onChange={e=>setGaso("lac", e.target.value)}/></div>
+        </div>
+        <div className="row c3" style={{marginTop:8}}>
+          <div><label>HCO₃</label><input type="number" inputMode="decimal" value={G.hco3} onChange={e=>setGaso("hco3", e.target.value)}/></div>
+          <div><label>SatO₂</label><input type="number" inputMode="decimal" value={G.sao2} onChange={e=>setGaso("sao2", e.target.value)}/></div>
+          <div><label>P/F</label><input type="number" inputMode="decimal" value={G.pf} onChange={e=>setGaso("pf", e.target.value)}/></div>
+        </div>
+      </div>
+
+      {/* checklist */}
+      <div className="section">
+        <h2>Checklist da ronda</h2>
+        {CHECK_DEFS.map(c=>(
+          <div className="check-item" key={c.k}>
+            <div className="top">
+              <span className="n">{c.n}</span>
+              <span className="t">{c.t}</span>
+            </div>
+            <div className="seg" style={{marginBottom:10}}>
+              <button className={bed.check[c.k]==="ok"?"on-ok":""} onClick={()=>setCheck(c.k,"ok")}>OK</button>
+              <button className={bed.check[c.k]==="pend"?"on-pend":""} onClick={()=>setCheck(c.k,"pend")}>Pendência</button>
+              <button className={bed.check[c.k]==="na"?"on-na":""} onClick={()=>setCheck(c.k,"na")}>N/A</button>
+            </div>
+            <input value={bed.checkNote[c.k]} onChange={e=>setCheckNote(c.k, e.target.value)} placeholder="Anotação (opcional)"/>
+          </div>
+        ))}
+      </div>
+
+      {/* pendências */}
+      <div className="section">
+        <h2>Pendências do plantão</h2>
+        <textarea value={bed.pend} onChange={e=>set({pend:e.target.value})} placeholder="O que precisa ser feito neste leito..."/>
+      </div>
+
+      <div className="spacer"></div>
+
+      {showInv &&
+        <div className="modal-bg" onClick={()=>setShowInv(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <h3>Adicionar invasão</h3>
+            {CATALOG.map(g=>(
+              <div className="catgroup" key={g.cat}>
+                <div className="lbl">{g.cat}</div>
+                <div className="opts">
+                  {g.items.map(it=><button key={it} onClick={()=>addInv(it)}>{it}</button>)}
+                </div>
+              </div>
+            ))}
+            <div className="divider"></div>
+            <OtherInv onAdd={addInv}/>
+            <button className="btn ghost" style={{marginTop:14}} onClick={()=>setShowInv(false)}>Cancelar</button>
+          </div>
+        </div>}
+    </div>
+  );
+}
+
+function OtherInv({onAdd}){
+  const [v,setV]=useState("");
+  return (
+    <div>
+      <label>Outra invasão</label>
+      <div className="addrow">
+        <input value={v} onChange={e=>setV(e.target.value)} placeholder="Digite o nome"/>
+        <button className="btn primary sm" onClick={()=>{ if(v.trim()) onAdd(v.trim()); }}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- dose calculator (fluxo: droga -> concentracao -> vazao -> dose) ---------- */
+function Calc({beds}){
+  const [peso,setPeso]=useState("");
+  const [drugIdx,setDrugIdx]=useState("");   // indice na lista DRUGS, ou "manual"
+  const [conc,setConc]=useState("");         // concentracao final (editavel)
+  const [concUnit,setConcUnit]=useState("mcg/mL");
+  const [vazao,setVazao]=useState("");       // mL/h lido na bomba
+  const [manualDose,setManualDose]=useState("mcg/kg/min"); // p/ modo manual
+
+  const p = parseFloat(peso);
+  const drug = drugIdx!=="" && drugIdx!=="manual" ? DRUGS[+drugIdx] : null;
+
+  // ao escolher droga, pre-preenche concentracao e unidade
+  function pickDrug(v){
+    setDrugIdx(v);
+    if(v==="manual"){ setConc(""); setConcUnit("mcg/mL"); return; }
+    if(v!==""){ const d=DRUGS[+v]; setConc(String(d.conc)); setConcUnit(d.concUnit); }
+  }
+
+  const c = parseFloat(conc), r = parseFloat(vazao);
+  // doses a exibir
+  let doseRows = [];
+  if(drug){
+    doseRows = drug.doses.map(ds=>({
+      u: ds.u,
+      needsWeight: ds.weight,
+      val: computeDose(r, c, concUnit, ds.u, p),
+    }));
+  } else if(drugIdx==="manual"){
+    doseRows = [{ u:manualDose, needsWeight:/kg/.test(manualDose), val:computeDose(r, c, concUnit, manualDose, p) }];
+  }
+
+  return (
+    <div className="wrap">
+      <div className="section">
+        <h2>Dose pela vazão</h2>
+        <p className="mini" style={{marginTop:-6, marginBottom:12}}>Escolha a droga, confira a diluição, digite a vazão da bomba.</p>
+
+        <div className="row"><div>
+          <label>Droga</label>
+          <select value={drugIdx} onChange={e=>pickDrug(e.target.value)}>
+            <option value="">Selecionar droga</option>
+            {DRUGS.map((d,i)=><option key={d.nome} value={i}>{d.nome}</option>)}
+            <option value="manual">Outra (manual)</option>
+          </select>
+        </div></div>
+
+        {(drug || drugIdx==="manual") &&
+          <div className="row c2" style={{marginTop:10}}>
+            <div>
+              <label>Concentração final</label>
+              <input type="number" inputMode="decimal" value={conc} onChange={e=>setConc(e.target.value)} placeholder="ex: 200"/>
+            </div>
+            <div>
+              <label>Unidade da conc.</label>
+              <select value={concUnit} onChange={e=>setConcUnit(e.target.value)} disabled={!!drug}>
+                <option value="mcg/mL">mcg/mL</option>
+                <option value="mg/mL">mg/mL</option>
+                <option value="UI/mL">UI/mL</option>
+              </select>
+            </div>
+          </div>}
+
+        {drug && <div className="hint" style={{marginTop:6}}>Padrão do CTI. Ajuste se a diluição estiver diferente hoje.</div>}
+      </div>
+
+      {(drug || drugIdx==="manual") &&
+        <div className="section">
+          <h2>Dados</h2>
+          <div className="row c2">
+            <div>
+              <label>Vazão na bomba (mL/h)</label>
+              <input type="number" inputMode="decimal" value={vazao} onChange={e=>setVazao(e.target.value)} placeholder="ex: 5"/>
+            </div>
+            <div>
+              <label>Peso (kg)</label>
+              <input type="number" inputMode="decimal" value={peso} onChange={e=>setPeso(e.target.value)} placeholder="ex: 72"/>
+            </div>
+          </div>
+          <div className="row"><div>
+            <label>Puxar peso de um leito</label>
+            <select value="" onChange={e=>{ const b=beds.find(x=>String(x.num)===e.target.value); if(b&&b.peso) setPeso(b.peso); }}>
+              <option value="">Selecionar leito</option>
+              {beds.filter(b=>b.occupied&&b.peso).map(b=><option key={b.num} value={b.num}>Leito {b.num} — {b.peso}kg</option>)}
+            </select>
+          </div></div>
+
+          {drugIdx==="manual" &&
+            <div className="row" style={{marginTop:10}}><div>
+              <label>Unidade de dose</label>
+              <select value={manualDose} onChange={e=>setManualDose(e.target.value)}>
+                <option>mcg/kg/min</option><option>mcg/kg/h</option>
+                <option>mcg/h</option><option>mcg/min</option>
+                <option>mg/h</option><option>mg/kg/h</option>
+                <option>UI/min</option><option>UI/h</option>
+              </select>
+            </div></div>}
+        </div>}
+
+      {doseRows.length>0 && r>0 && c>0 &&
+        <div className="section">
+          <h2>Dose atual</h2>
+          {doseRows.map((row,i)=>(
+            <div className="calc-out" key={i} style={{marginTop:i?10:0}}>
+              {row.needsWeight && !(p>0)
+                ? <div className="mini" style={{padding:"6px 0"}}>Informe o peso para esta dose</div>
+                : <React.Fragment>
+                    <div className="big">{fmt(row.val)}</div>
+                    <div className="unit">{row.u}</div>
+                  </React.Fragment>}
+            </div>
+          ))}
+        </div>}
+
+      <div className="section">
+        <p className="mini" style={{margin:0, lineHeight:1.5}}>Ferramenta de apoio. Confira sempre a diluição e a dose antes de prescrever ou programar a bomba. As concentrações são padrões do serviço e podem variar.</p>
+      </div>
+      <div className="spacer"></div>
+    </div>
+  );
+}
+function fmt(x){
+  if(x==null||isNaN(x)) return "—";
+  if(x>=100) return x.toFixed(0);
+  if(x>=10) return x.toFixed(1);
+  return x.toFixed(2);
+}
+
+/* ---------- mount + service worker ---------- */
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+if("serviceWorker" in navigator){
+  const sw = `self.addEventListener("install",e=>self.skipWaiting());
+self.addEventListener("activate",e=>self.clients.claim());
+self.addEventListener("fetch",e=>{
+  e.respondWith(
+    caches.open("ronda-cti").then(c=>
+      c.match(e.request).then(r=> r || fetch(e.request).then(resp=>{
+        if(e.request.method==="GET" && resp.status===200){ c.put(e.request, resp.clone()); }
+        return resp;
+      }).catch(()=>r))
+    )
+  );
+});`;
+  const blob = new Blob([sw], {type:"application/javascript"});
+  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+}
+</script>
+</body>
+</html>
