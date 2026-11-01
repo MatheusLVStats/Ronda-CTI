@@ -16,6 +16,11 @@ export function diasCTI(p, hoje) {
   return d === null || d < 0 ? null : d;
 }
 
+export function diasInternacao(p, hoje) {
+  const d = diasDesde(p.internacao, hoje);
+  return d === null || d < 0 ? null : d;
+}
+
 export function idLine(p) {
   const parts = [];
   if (has(p.idade)) parts.push(`${show(p.idade)} anos`);
@@ -235,6 +240,8 @@ export function buildEvolucao(p, ctx) {
   const head = [`EVOLUÇÃO MÉDICA - ${(unidade || 'CTI').toUpperCase()} - LEITO ${leito} - ${ddmmyyyy(hoje)}`];
   const id = idLine(p);
   if (id) head.push(id);
+  const di = diasInternacao(p, hoje);
+  if (di !== null) head.push(`D${di} de internação hospitalar (${ddmm(p.internacao)})`);
   const dc = diasCTI(p, hoje);
   if (dc !== null) head.push(`D${dc} de CTI (admissão em ${ddmm(p.admissao)})`);
   head.push('');
@@ -284,6 +291,8 @@ export function buildPassagem(entries, ctx) {
     const head = [`LEITO ${leito}`];
     const id = idLine(p);
     if (id) head.push(id);
+    const di = diasInternacao(p, hoje);
+    if (di !== null) head.push(`D${di} de internação`);
     const dc = diasCTI(p, hoje);
     if (dc !== null) head.push(`D${dc} de CTI`);
     out.push(head.join(' - '));

@@ -2,7 +2,7 @@ import React from 'react';
 import { ddmm } from '../lib/dates.js';
 import { has } from '../lib/format.js';
 import { statusDispositivo, isDVE } from '../lib/devices.js';
-import { diasCTI } from '../lib/text.js';
+import { diasCTI, diasInternacao } from '../lib/text.js';
 import { CHECK_DEFS } from '../lib/model.js';
 import { Icon } from './ui.jsx';
 
@@ -18,6 +18,7 @@ export function bedFacts(p, hoje) {
     (devs.some((d) => isDVE(d.nome) && d.questionarRetirada) ? 1 : 0);
   return {
     dc: diasCTI(p, hoje),
+    di: diasInternacao(p, hoje),
     dx: (p.diagnosticos.find((d) => has(d.texto)) || {}).texto || '',
     alergia: has(p.alergias),
     isolamento: has(p.isolamento),

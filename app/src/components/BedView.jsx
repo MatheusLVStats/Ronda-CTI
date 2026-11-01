@@ -181,7 +181,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
           <div className="bedno"><small>LEITO</small><b>{leito}</b></div>
           <div className="who">
             <div className="l1">{f.dx || 'Sem diagnóstico'}</div>
-            <div className="l2">{[has(p.idade) && `${p.idade} anos`, sexoTxt[p.sexo], has(p.peso) && `${p.peso} kg`, f.dc !== null && `D${f.dc} no CTI`].filter(Boolean).join(' - ') || 'Preencha a identificação'}</div>
+            <div className="l2">{[has(p.idade) && `${p.idade} anos`, sexoTxt[p.sexo], has(p.peso) && `${p.peso} kg`, f.di !== null && `D${f.di} de internação`, f.dc !== null && `D${f.dc} no CTI`].filter(Boolean).join(' - ') || 'Preencha a identificação'}</div>
           </div>
           <div className="acts">
             <div className="seg">
@@ -226,9 +226,12 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
 
           {/* 2. Identificação */}
           <Section title="Identificação" open={isOpen('ident')} onToggle={() => toggle('ident')}
-            summary={[has(p.idade) && `${p.idade} anos`, sexoTxt[p.sexo], has(p.peso) && `${p.peso} kg`, has(p.admissao) && `admissão ${ddmm(p.admissao)}`].filter(Boolean).join(' - ')}>
+            summary={[has(p.idade) && `${p.idade} anos`, sexoTxt[p.sexo], has(p.peso) && `${p.peso} kg`, has(p.internacao) && `internação ${ddmm(p.internacao)}`, has(p.admissao) && `CTI ${ddmm(p.admissao)}`].filter(Boolean).join(' - ')}>
             <div className="row c2">
+              <Field label="Internação hospitalar" type="date" value={p.internacao} onChange={(v) => setP({ internacao: v })} hint={f.di !== null ? `D${f.di} de internação` : undefined} />
               <Field label="Admissão no CTI" type="date" value={p.admissao} onChange={(v) => setP({ admissao: v })} hint={f.dc !== null ? `D${f.dc} de CTI` : undefined} />
+            </div>
+            <div className="row">
               <Field label="Origem" value={p.origem} onChange={(v) => setP({ origem: v })} placeholder="ex.: emergência, CC" />
             </div>
             <div className="row c3">

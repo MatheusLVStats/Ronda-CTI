@@ -106,7 +106,7 @@ describe('dispositivos', () => {
 function pacienteModelo() {
   const p = newPatient('2026-10-20');
   Object.assign(p, {
-    idade: '58', sexo: 'M', peso: '72',
+    idade: '58', sexo: 'M', peso: '72', internacao: '2026-10-18',
     diaRound: HOJE,
     diagnosticos: [
       { id: 'a', texto: 'HSA aneurismática (aneurisma de AComA), ictus', data: '2026-10-20', cirurgia: false },
@@ -167,6 +167,7 @@ describe('evolução padrão (modelo do CriticalEye)', () => {
     for (const l of [
       'EVOLUÇÃO MÉDICA - CTI 1 NEUROLÓGICO - LEITO 04 - 27/10/2026',
       '58 anos - masculino - 72 kg',
+      'D9 de internação hospitalar (18/10)',
       'D7 de CTI (admissão em 20/10)',
       '2. PO embolização de aneurisma de AComA (21/10) - PO D6',
       'D7 (D0 20/10 - Emergência) TOT',

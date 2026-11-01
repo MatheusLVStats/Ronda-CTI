@@ -48,7 +48,7 @@ export const emptyGaso = () => ({ data: '', hora: '', ph: '', pco2: '', po2: '',
 
 export function newPatient(hoje = todayISO()) {
   return {
-    admissao: hoje,
+    internacao: '', admissao: hoje,
     idade: '', sexo: '', peso: '', origem: '',
     diagnosticos: [],
     comorbidades: '', medicacoes: '', alergias: '', isolamento: '',
