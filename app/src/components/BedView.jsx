@@ -11,6 +11,8 @@ import { CHECK_DEFS, MODOS, ventFields, VENT_LABELS, LAB_KEYS, GASO_KEYS, uid } 
 import { ventLines, neuroLines, labLines, gasoLines, atbLines, exameLines, profilaxiaLines, nutricaoLines, vitaisLine, diagLines } from '../lib/text.js';
 import { Section, Field, Area, Seg, Modal, Icon } from './ui.jsx';
 import { bedFacts } from './BedMap.jsx';
+import ImportPdf from './ImportPdf.jsx';
+import { applyImport } from '../lib/importer.js';
 
 const ABERTAS = ['ronda', 'disp', 'inf', 'atb', 'plano'];
 const abertasPara = (p) => [...ABERTAS, ...(!p.idade && !p.peso ? ['ident'] : []), ...(!p.diagnosticos.some((d) => d.texto) ? ['diag'] : [])];
@@ -138,12 +140,13 @@ function SaidaModal({ leito, onConfirm, onClose }) {
   );
 }
 
-export default function BedView({ leito, patient: p, hoje, drugConc, onChange, onSaida, onEvolucao, onRollover, tabs }) {
+export default function BedView({ leito, patient: p, hoje, drugConc, onChange, onSaida, onEvolucao, onRollover, onToast, tabs }) {
   const [open, setOpen] = useState(() => new Set(abertasPara(p)));
   const [completa, setCompleta] = useState(false);
   const [addDev, setAddDev] = useState(false);
   const [saida, setSaida] = useState(false);
   const [novaPend, setNovaPend] = useState('');
+  const [importar, setImportar] = useState(false);
 
   const upd = (fn) => onChange((cur) => fn(cur));
   const setP = (patch) => upd((c) => ({ ...c, ...patch }));
@@ -189,6 +192,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
               <button className={completa ? 'on' : ''} onClick={() => setCompleta(true)}>Completa</button>
             </div>
             <button className="btn primary" onClick={onEvolucao}><Icon name="copy" /> Copiar evolução</button>
+            <button className="btn" onClick={() => setImportar(true)}><Icon name="file" /> Importar PDF</button>
             <button className="btn danger" onClick={() => setSaida(true)}><Icon name="exit" /> Saída do CTI</button>
           </div>
           {(f.alergia || f.isolamento || f.overLimit.length > 0 || conf.infusoes || conf.vent || conf.neuro || p.dispositivos.some((d) => isDVE(d.nome) && d.questionarRetirada)) && (
@@ -591,6 +595,10 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
           listAdd('dispositivos', { nome, data: todayISO(), origem: '', sitio: '', sitios: [], montagem: '', altura: '', estado: '', debito: '', aspecto: '', questionarRetirada: false });
           setAddDev(false);
         }} />
+      )}
+      {importar && (
+        <ImportPdf leito={leito} patient={p} hoje={hoje} onClose={() => setImportar(false)}
+          onApply={(sel, n) => { upd((c) => applyImport(c, sel)); setImportar(false); if (onToast) onToast(n ? `${n} ${n === 1 ? 'item importado' : 'itens importados'}` : 'Nada foi importado'); }} />
       )}
       {saida && <SaidaModal leito={leito} onClose={() => setSaida(false)} onConfirm={(t) => { setSaida(false); onSaida(t); }} />}
     </div>

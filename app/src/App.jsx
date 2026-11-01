@@ -375,6 +375,7 @@ export default function App() {
           tabs={tabs}
           onChange={(fn) => changeBed(bedId, (p) => fn(p))}
           onRollover={() => iniciarRound([bedId])}
+          onToast={toast}
           onSaida={(tipo) => saida(bedId, tipo)}
           onEvolucao={() => setModal({ title: `Evolução - leito ${leitoLabel(bedId)}`, text: buildEvolucao(bed.patient, { hoje, unidade: state.settings.unidade, leito: leitoLabel(bedId), drugConc: state.settings.drugConc }) })}
         />

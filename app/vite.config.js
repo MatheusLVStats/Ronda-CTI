@@ -9,6 +9,8 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 export default defineConfig({
   base: './',
   plugins: [react()],
+  // O leitor de PDF roda num worker; módulo ES para funcionar nos navegadores dos PCs do hospital.
+  worker: { format: 'es' },
   build: {
     outDir: repoRoot,
     emptyOutDir: false,
