@@ -11,8 +11,9 @@ import { CHECK_DEFS, MODOS, ventFields, VENT_LABELS, LAB_KEYS, GASO_KEYS, uid } 
 import { ventLines, neuroLines, labLines, gasoLines, atbLines, exameLines, profilaxiaLines, nutricaoLines, vitaisLine, diagLines } from '../lib/text.js';
 import { Section, Field, Area, Seg, Modal, Icon } from './ui.jsx';
 import { bedFacts } from './BedMap.jsx';
-import ImportPdf from './ImportPdf.jsx';
+import ImportPdf, { PdfPick } from './ImportPdf.jsx';
 import { applyImport } from '../lib/importer.js';
+import { applyLab, applyLaudos } from '../lib/importLab.js';
 
 const ABERTAS = ['ronda', 'disp', 'inf', 'atb', 'plano'];
 const abertasPara = (p) => [...ABERTAS, ...(!p.idade && !p.peso ? ['ident'] : []), ...(!p.diagnosticos.some((d) => d.texto) ? ['diag'] : [])];
@@ -146,7 +147,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
   const [addDev, setAddDev] = useState(false);
   const [saida, setSaida] = useState(false);
   const [novaPend, setNovaPend] = useState('');
-  const [importar, setImportar] = useState(false);
+  const [importar, setImportar] = useState(null); // null | { tipo, file? }
 
   const upd = (fn) => onChange((cur) => fn(cur));
   const setP = (patch) => upd((c) => ({ ...c, ...patch }));
@@ -192,7 +193,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
               <button className={completa ? 'on' : ''} onClick={() => setCompleta(true)}>Completa</button>
             </div>
             <button className="btn primary" onClick={onEvolucao}><Icon name="copy" /> Copiar evolução</button>
-            <button className="btn" onClick={() => setImportar(true)}><Icon name="file" /> Importar PDF</button>
+            <button className="btn" onClick={() => setImportar({ tipo: '' })}><Icon name="file" /> Importar PDF</button>
             <button className="btn danger" onClick={() => setSaida(true)}><Icon name="exit" /> Saída do CTI</button>
           </div>
           {(f.alergia || f.isolamento || f.overLimit.length > 0 || conf.infusoes || conf.vent || conf.neuro || p.dispositivos.some((d) => isDVE(d.nome) && d.questionarRetirada)) && (
@@ -506,6 +507,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
               ))}
             </div>
             <Area label="Outros exames (um por linha)" value={p.labs.outros} onChange={(v) => setIn('labs', { outros: v })} rows={2} placeholder="ex.: TGO 45 / TGP 60" />
+            <PdfPick className="btn ghost sm" onFile={(f) => setImportar({ tipo: 'lab', file: f })}><Icon name="file" /> Importar PDF do laboratório</PdfPick>
           </Section>
 
           {/* 14. Gasometria */}
@@ -521,6 +523,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
                   prev={has(p.gasoAnt[k]) ? `anterior: ${show(p.gasoAnt[k])}` : undefined} />
               ))}
             </div>
+            <PdfPick className="btn ghost sm" onFile={(f) => setImportar({ tipo: 'lab', file: f })}><Icon name="file" /> Importar PDF da gasometria</PdfPick>
           </Section>
 
           {/* 15. Imagem e outros exames */}
@@ -538,7 +541,10 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
                 </div>
               </div>
             ))}
-            <button className="btn ghost sm" onClick={() => listAdd('exames', { exame: '', data: hoje, resultado: '' })}><Icon name="plus" /> Exame</button>
+            <div className="flex wrap-f">
+              <button className="btn ghost sm" onClick={() => listAdd('exames', { exame: '', data: hoje, resultado: '' })}><Icon name="plus" /> Exame</button>
+              <PdfPick className="btn ghost sm" onFile={(f) => setImportar({ tipo: 'imagem', file: f })}><Icon name="file" /> Importar laudo em PDF</PdfPick>
+            </div>
           </Section>
 
           {/* 16. Nutrição e TGI */}
@@ -597,8 +603,12 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
         }} />
       )}
       {importar && (
-        <ImportPdf leito={leito} patient={p} hoje={hoje} onClose={() => setImportar(false)}
-          onApply={(sel, n) => { upd((c) => applyImport(c, sel)); setImportar(false); if (onToast) onToast(n ? `${n} ${n === 1 ? 'item importado' : 'itens importados'}` : 'Nada foi importado'); }} />
+        <ImportPdf leito={leito} patient={p} hoje={hoje} tipo={importar.tipo} file={importar.file} onClose={() => setImportar(null)}
+          onApply={({ tipo, sel }, n) => {
+            if (n) upd((c) => (tipo === 'lab' ? applyLab(c, sel) : tipo === 'imagem' ? applyLaudos(c, sel) : applyImport(c, sel)));
+            setImportar(null);
+            if (onToast) onToast(n ? `${n} ${n === 1 ? 'item importado' : 'itens importados'}` : 'Nada foi importado');
+          }} />
       )}
       {saida && <SaidaModal leito={leito} onClose={() => setSaida(false)} onConfirm={(t) => { setSaida(false); onSaida(t); }} />}
     </div>

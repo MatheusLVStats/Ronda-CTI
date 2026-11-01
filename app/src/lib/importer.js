@@ -4,8 +4,8 @@ import { addDays, isoFromDate, parseISO } from './dates.js';
 import { uid } from './model.js';
 import { has } from './format.js';
 
-const strip = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const clean = (s) => String(s || '').replace(/^[\s\-•*·>]+/, '').replace(/^\d{1,2}[.)]\s+/, '').replace(/\s+/g, ' ').trim();
+export const strip = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+export const clean = (s) => String(s || '').replace(/^[\s\-•*·>]+/, '').replace(/^\d{1,2}[.)]\s+/, '').replace(/\s+/g, ' ').trim();
 
 // ---------- datas ----------
 const DATE_RE = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/;
@@ -77,7 +77,7 @@ export function splitSections(text) {
 }
 
 // ---------- identificação ----------
-function header(text, hoje) {
+export function header(text, hoje) {
   const t = String(text || '');
   const out = {};
   const nome = t.match(/(?:paciente|nome(?: do paciente)?)\s*:\s*([A-Za-zÀ-ÿ'.\- ]{4,70})/i);

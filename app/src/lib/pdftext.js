@@ -12,19 +12,27 @@ export function itemsToLines(items) {
     const y = it.transform ? it.transform[5] : 0;
     let row = rows.find((r) => Math.abs(r.y - y) <= 2.5);
     if (!row) { row = { y, parts: [] }; rows.push(row); }
-    row.parts.push({ x, str, w: it.width || 0 });
+    const h = Math.abs(it.transform ? it.transform[3] : 0) || it.height || 10;
+    row.parts.push({ x, str, w: it.width || 0, h });
   }
   rows.sort((a, b) => b.y - a.y);
   return rows.map((r) => {
     r.parts.sort((a, b) => a.x - b.x);
     let line = '';
     let end = null;
+    let temLargura = false;
     for (const p of r.parts) {
-      if (line && end !== null && p.x - end > 1.5 && !line.endsWith(' ') && !p.str.startsWith(' ')) line += ' ';
+      if (line && end !== null) {
+        const gap = p.x - end;
+        // Espaço largo entre colunas (tabela de laboratório) vira TAB; espaço comum vira espaço.
+        if (temLargura && gap > Math.max(12, p.h * 1.2)) line = line.replace(/ +$/, '') + '\t';
+        else if (gap > 1.5 && !/[ \t]$/.test(line) && !p.str.startsWith(' ')) line += ' ';
+      }
       line += p.str;
       end = p.x + p.w;
+      temLargura = p.w > 0;
     }
-    return line.replace(/\s+/g, ' ').trim();
+    return line.replace(/[ \u00a0]+/g, ' ').replace(/ *\t[\t ]*/g, '\t').trim();
   }).filter(Boolean).join('\n');
 }
 

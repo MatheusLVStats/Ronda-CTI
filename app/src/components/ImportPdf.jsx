@@ -1,5 +1,7 @@
-import React, { useRef, useState } from 'react';
-import { parseEvolucao } from '../lib/importer.js';
+import React, { useEffect, useRef, useState } from 'react';
+import { parseEvolucao, header } from '../lib/importer.js';
+import { parseLab, parseLaudos, destinoTexto, situacaoLaudo } from '../lib/importLab.js';
+import { LAB_KEYS, GASO_KEYS } from '../lib/model.js';
 import { ddmm } from '../lib/dates.js';
 import { has } from '../lib/format.js';
 import { Modal, Icon } from './ui.jsx';
@@ -48,24 +50,208 @@ function Row({ on, onToggle, children, note }) {
   );
 }
 
-export default function ImportPdf({ leito, patient, hoje, onApply, onClose }) {
-  const [stage, setStage] = useState('pick');
+const TIPOS = {
+  evolucao: { t: 'Evolução ou sumário', d: 'Transferência ou admissão de outro setor' },
+  lab: { t: 'Laboratório', d: 'Hemograma, bioquímica, coagulograma e gasometria' },
+  imagem: { t: 'Laudo de imagem', d: 'TC, RX, USG, RM, ecocardiograma, DTC...' },
+};
+const LABEL = Object.fromEntries([...LAB_KEYS, ...GASO_KEYS]);
+
+function prepareLab(r, p) {
+  const itens = r.itens.map((x) => {
+    const atual = x.alvo === 'gaso' ? p.gaso[x.k] : p.labs[x.k];
+    return { ...x, label: LABEL[x.k] || x.k, atual, on: !x.suspeito };
+  });
+  return { data: r.data, hora: r.hora, venosa: r.venosa, itens, outros: r.outros.map((o) => ({ ...o, on: true })) };
+}
+
+function prepareLaudos(laudos, p) {
+  return {
+    laudos: laudos.map((e) => {
+      const { tipo, ex } = situacaoLaudo(p.exames, e);
+      const nota = {
+        completa: `Completa "${ex && ex.exame}", que aguardava laudo.`,
+        igual: 'Já está no leito com esta conclusão.',
+        outra: `Já está no leito com outra conclusão ("${ex && ex.resultado}"). Marcar substitui.`,
+      }[tipo];
+      return { ...e, on: tipo === 'novo' || (tipo === 'completa' && has(e.resultado)), nota };
+    }),
+  };
+}
+
+function ReviewEvolucao({ s, setS, upd, patient }) {
+  return (
+    <>
+      <Group title="Identificação" n={s.ids.length}>
+        {s.ids.map((x, i) => (
+          <Row key={x.k} on={x.on} onToggle={(v) => upd('ids', i, { on: v })}
+            note={has(x.atual) && x.atual !== x.value ? `No leito hoje: ${x.k === 'internacao' ? ddmm(x.atual) : x.k === 'sexo' ? SEXO[x.atual] : x.atual}. Marcar substitui.` : undefined}>
+            <span>{x.label}: </span>
+            {x.k === 'internacao'
+              ? <input type="date" value={x.value} onChange={(e) => upd('ids', i, { value: e.target.value })} style={{ maxWidth: 190 }} />
+              : <b>{x.k === 'sexo' ? SEXO[x.value] : x.value}</b>}
+          </Row>
+        ))}
+      </Group>
+      <Group title="Diagnósticos" n={s.diagnosticos.length}>
+        {s.diagnosticos.map((d, i) => (
+          <Row key={d.id} on={d.on} onToggle={(v) => upd('diagnosticos', i, { on: v })} note={d.dup ? 'Já está no leito.' : d.cirurgia ? 'Cirurgia/procedimento: conta PO.' : undefined}>
+            <input value={d.texto} onChange={(e) => upd('diagnosticos', i, { texto: e.target.value })} />
+          </Row>
+        ))}
+      </Group>
+      {[['comorbidades', 'Comorbidades'], ['medicacoes', 'Medicações de uso contínuo'], ['alergias', 'Alergias']].map(([g, title]) => (
+        <Group key={g} title={title} n={s[g].length}>
+          {s[g].map((x, i) => (
+            <Row key={g + i} on={x.on} onToggle={(v) => upd(g, i, { on: v })} note={x.dup ? 'Já está no leito.' : undefined}>
+              <input value={x.t} onChange={(e) => upd(g, i, { t: e.target.value })} />
+            </Row>
+          ))}
+        </Group>
+      ))}
+      <Group title="Dispositivos" n={s.dispositivos.length}>
+        {s.dispositivos.map((d, i) => (
+          <Row key={d.id} on={d.on} onToggle={(v) => upd('dispositivos', i, { on: v })} note={d.dup ? 'Já existe um igual no leito.' : `Lido: "${d.fonte}"`}>
+            <div className="flex wrap-f">
+              <b>{d.nome}{d.sitio ? ' ' + d.sitio : ''}</b>
+              <input type="date" value={d.data} onChange={(e) => upd('dispositivos', i, { data: e.target.value })} style={{ maxWidth: 170 }} aria-label="Data de inserção" />
+              {d.origem && <span className="chip">{d.origem}</span>}
+            </div>
+          </Row>
+        ))}
+      </Group>
+      <Group title="Antimicrobianos" n={s.atbs.length}>
+        {s.atbs.map((a, i) => (
+          <Row key={a.id} on={a.on} onToggle={(v) => upd('atbs', i, { on: v })} note={a.dup ? 'Já está no leito.' : `Lido: "${a.fonte}"`}>
+            <div className="flex wrap-f">
+              <b>{a.nome}</b>
+              <span className="hint" style={{ marginTop: 0 }}>início</span>
+              <input type="date" value={a.inicio} onChange={(e) => upd('atbs', i, { inicio: e.target.value })} style={{ maxWidth: 170 }} aria-label="Início" />
+              {a.fim && <span className="chip">prévio, até {ddmm(a.fim)}</span>}
+            </div>
+          </Row>
+        ))}
+      </Group>
+      <Group title="Culturas" n={s.culturas.length}>
+        {s.culturas.map((c, i) => (
+          <Row key={c.id} on={c.on} onToggle={(v) => upd('culturas', i, { on: v })} note={c.dup ? 'Já está no leito.' : undefined}>
+            <span>{c.material}{c.data ? ` ${ddmm(c.data)}` : ''}: {c.resultado || 'pendente'}</span>
+          </Row>
+        ))}
+      </Group>
+      <Group title="Exames" n={s.exames.length}>
+        {s.exames.map((e, i) => (
+          <Row key={e.id} on={e.on} onToggle={(v) => upd('exames', i, { on: v })} note={e.dup ? 'Já está no leito.' : undefined}>
+            <span>{e.exame}{e.data ? ` ${ddmm(e.data)}` : ''}: {e.resultado || 'aguarda laudo'}</span>
+          </Row>
+        ))}
+      </Group>
+      {s.vent && (
+        <Group title="Ventilação" n={1}>
+          <Row on={s.vent.on} onToggle={(v) => setS((cur) => ({ ...cur, vent: { ...cur.vent, on: v } }))}
+            note={has(patient.vent.modo) ? `No leito hoje: ${patient.vent.modo}. Marcar substitui os parâmetros.` : undefined}>
+            <span>{[s.vent.modo, s.vent.pi && `PI ${s.vent.pi}`, s.vent.psup && `Psup ${s.vent.psup}`, s.vent.peep && `PEEP ${s.vent.peep}`, s.vent.fio2 && `FiO2 ${s.vent.fio2}%`, s.vent.fr && `FR ${s.vent.fr}`, s.vent.vc && `VC ${s.vent.vc}`, s.vent.fluxo && `${s.vent.fluxo} L/min`].filter(Boolean).join(' / ')}</span>
+          </Row>
+        </Group>
+      )}
+    </>
+  );
+}
+
+function ReviewLab({ s, setS, upd, patient }) {
+  const labs = s.itens.map((x, i) => [x, i]).filter(([x]) => x.alvo === 'labs');
+  const gaso = s.itens.map((x, i) => [x, i]).filter(([x]) => x.alvo === 'gaso');
+  const item = ([x, i]) => (
+    <Row key={x.k} on={x.on} onToggle={(v) => upd('itens', i, { on: v })}
+      note={[x.nota, x.suspeito ? `Valor fora do esperado, confira no PDF ("${x.fonte}").` : has(x.atual) && `No leito hoje: ${x.atual}`].filter(Boolean).join(' ') || undefined}>
+      <div className="flex">
+        <span style={{ minWidth: 70 }}>{x.label}</span>
+        <input value={x.valor} inputMode="decimal" onChange={(e) => upd('itens', i, { valor: e.target.value })} style={{ maxWidth: 130 }} />
+      </div>
+    </Row>
+  );
+  return (
+    <>
+      <div className="row c2">
+        <div><label>Data da coleta</label><input type="date" value={s.data} onChange={(e) => setS((c) => ({ ...c, data: e.target.value }))} /></div>
+        <div><label>Hora</label><input type="time" value={s.hora} onChange={(e) => setS((c) => ({ ...c, hora: e.target.value }))} /></div>
+      </div>
+      <Group title={`Exames - ${destinoTexto(patient.labs, s.data)}`} n={labs.length}>{labs.map(item)}</Group>
+      <Group title={`Gasometria - ${destinoTexto(patient.gaso, s.data)}`} n={gaso.length}>
+        {s.venosa && <div className="hint" style={{ marginBottom: 6 }}>O PDF fala em gasometria venosa.</div>}
+        {gaso.map(item)}
+      </Group>
+      <Group title="Outros exames (vão para 'outros' do laboratório)" n={s.outros.length}>
+        {s.outros.map((o, i) => (
+          <Row key={o.label} on={o.on} onToggle={(v) => upd('outros', i, { on: v })}>
+            <div className="flex">
+              <span style={{ minWidth: 70 }}>{o.label}</span>
+              <input value={o.valor} onChange={(e) => upd('outros', i, { valor: e.target.value })} style={{ maxWidth: 130 }} />
+            </div>
+          </Row>
+        ))}
+      </Group>
+    </>
+  );
+}
+
+function ReviewImagem({ s, upd }) {
+  return (
+    <Group title="Laudos" n={s.laudos.length}>
+      {s.laudos.map((e, i) => (
+        <Row key={e.id} on={e.on} onToggle={(v) => upd('laudos', i, { on: v })}
+          note={[e.nota, !has(e.resultado) && 'Não achei a conclusão: digite ou copie do laudo.'].filter(Boolean).join(' ') || undefined}>
+          <input value={e.exame} onChange={(ev) => upd('laudos', i, { exame: ev.target.value })} aria-label="Exame" style={{ marginBottom: 6 }} />
+          <input type="date" value={e.data} onChange={(ev) => upd('laudos', i, { data: ev.target.value })} aria-label="Data do exame" style={{ maxWidth: 190, marginBottom: 6 }} />
+          <textarea rows={3} value={e.resultado} onChange={(ev) => upd('laudos', i, { resultado: ev.target.value })} aria-label="Conclusão" />
+        </Row>
+      ))}
+    </Group>
+  );
+}
+
+const contar = (tipo, s) => {
+  if (tipo === 'lab') return s.itens.length + s.outros.length;
+  if (tipo === 'imagem') return s.laudos.length;
+  return s.ids.length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames'].reduce((a, k) => a + s[k].length, 0) + (s.vent ? 1 : 0);
+};
+
+// Botão que abre o seletor de arquivo direto (um toque), também no Safari do iPhone.
+export function PdfPick({ className = 'btn', children, onFile }) {
+  return (
+    <label className={className + ' pdfpick'}>
+      <input type="file" accept="application/pdf,.pdf" className="file-hidden"
+        onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) onFile(f); }} />
+      {children}
+    </label>
+  );
+}
+
+export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, file: fileInicial, onApply, onClose }) {
+  const [tipo, setTipo] = useState(tipoInicial || '');
+  const [stage, setStage] = useState(fileInicial ? 'reading' : 'pick');
   const [err, setErr] = useState('');
   const [s, setS] = useState(null);
+  const [nome, setNome] = useState('');
   const [texto, setTexto] = useState('');
   const [verTexto, setVerTexto] = useState(false);
-  const fileRef = useRef(null);
+  const iniciado = useRef(false);
 
-  async function ler(file) {
+  async function ler(file, t) {
     if (!file) return;
+    setTipo(t);
     setStage('reading');
     setErr('');
     try {
       const { pdfToText } = await import('../lib/pdftext.js');
-      const t = await pdfToText(file);
-      if (!t.trim()) throw new Error('vazio');
-      setTexto(t);
-      setS(prepare(parseEvolucao(t, hoje), patient));
+      const bruto = await pdfToText(file);
+      if (!bruto.trim()) throw new Error('vazio');
+      const plano = bruto.replace(/\t/g, ' ');
+      setTexto(bruto);
+      setNome(header(plano, hoje).nome || '');
+      if (t === 'lab') setS(prepareLab(parseLab(bruto, hoje), patient));
+      else if (t === 'imagem') setS(prepareLaudos(parseLaudos(plano, hoje), patient));
+      else setS(prepare(parseEvolucao(plano, hoje), patient));
       setStage('review');
     } catch (e) {
       console.error('Leitura do PDF:', e);
@@ -73,143 +259,89 @@ export default function ImportPdf({ leito, patient, hoje, onApply, onClose }) {
         ? 'Não achei texto neste PDF. Pode ser um PDF escaneado (imagem), que o app ainda não lê.'
         : 'Não foi possível ler este PDF neste navegador. Tente pelo celular ou por um Chrome atualizado.');
       setStage('pick');
-    } finally {
-      if (fileRef.current) fileRef.current.value = '';
     }
   }
+
+  // Aberto pelo botão da seção (laboratório, gasometria, imagem): o arquivo já vem escolhido.
+  useEffect(() => {
+    if (fileInicial && !iniciado.current) { iniciado.current = true; ler(fileInicial, tipoInicial || 'evolucao'); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const upd = (group, i, patch) => setS((cur) => ({ ...cur, [group]: cur[group].map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
 
   function aplicar() {
-    const on = (arr) => arr.filter((x) => x.on).map(({ on: _o, dup: _d, ...rest }) => rest);
-    const paciente = Object.fromEntries(s.ids.filter((x) => x.on).map((x) => [x.k, x.value]));
-    const sel = {
-      paciente,
-      diagnosticos: on(s.diagnosticos),
-      comorbidades: on(s.comorbidades).map((x) => x.t),
-      medicacoes: on(s.medicacoes).map((x) => x.t),
-      alergias: on(s.alergias).map((x) => x.t),
-      dispositivos: on(s.dispositivos),
-      atbs: on(s.atbs),
-      culturas: on(s.culturas),
-      exames: on(s.exames),
-      vent: s.vent && s.vent.on ? (({ on: _o, ...v }) => v)(s.vent) : null,
-    };
-    const total = Object.keys(paciente).length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames'].reduce((a, k) => a + sel[k].length, 0) + (sel.vent ? 1 : 0);
+    const on = (arr) => arr.filter((x) => x.on).map(({ on: _o, dup: _d, nota: _n, ...rest }) => rest);
+    let sel;
+    let total;
+    if (tipo === 'lab') {
+      sel = { data: s.data, gasoData: s.data, gasoHora: s.hora, itens: on(s.itens), outros: on(s.outros) };
+      total = sel.itens.length + sel.outros.length;
+    } else if (tipo === 'imagem') {
+      sel = on(s.laudos);
+      total = sel.length;
+    } else {
+      const paciente = Object.fromEntries(s.ids.filter((x) => x.on).map((x) => [x.k, x.value]));
+      sel = {
+        paciente,
+        diagnosticos: on(s.diagnosticos),
+        comorbidades: on(s.comorbidades).map((x) => x.t),
+        medicacoes: on(s.medicacoes).map((x) => x.t),
+        alergias: on(s.alergias).map((x) => x.t),
+        dispositivos: on(s.dispositivos),
+        atbs: on(s.atbs),
+        culturas: on(s.culturas),
+        exames: on(s.exames),
+        vent: s.vent && s.vent.on ? (({ on: _o, ...v }) => v)(s.vent) : null,
+      };
+      total = Object.keys(paciente).length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames'].reduce((a, k) => a + sel[k].length, 0) + (sel.vent ? 1 : 0);
+    }
     setTexto('');
     setS(null);
-    onApply(sel, total);
+    setNome('');
+    onApply({ tipo: tipo || 'evolucao', sel }, total);
   }
 
-  const vazio = s && !s.ids.length && !['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames'].some((k) => s[k].length) && !s.vent;
+  const nomeTipo = TIPOS[tipo || 'evolucao'].t.toLowerCase();
 
   return (
     <Modal title={`Importar PDF - leito ${leito}`} onClose={onClose}>
       {stage !== 'review' && (
         <>
-          <p style={{ marginTop: 0 }}>Evolução médica ou sumário de transferência gerado pelo sistema. O PDF é lido aqui, no aparelho: não vai para a nuvem nem fica guardado no app. Você confere tudo antes de entrar no leito.</p>
+          <p style={{ marginTop: 0 }}>O PDF é lido aqui, no aparelho: não vai para a nuvem nem fica guardado no app. Você confere tudo antes de entrar no leito.</p>
           {err && <div className="err">{err}</div>}
-          <input ref={fileRef} type="file" accept="application/pdf,.pdf" style={{ display: 'none' }} onChange={(e) => ler(e.target.files && e.target.files[0])} />
-          <button className="btn primary block" disabled={stage === 'reading'} onClick={() => fileRef.current && fileRef.current.click()}>
-            {stage === 'reading' ? 'Lendo o PDF...' : 'Escolher PDF'}
-          </button>
+          {stage === 'reading'
+            ? <div className="calcbox">Lendo o PDF ({nomeTipo})...</div>
+            : (
+              <div className="row">
+                {Object.entries(TIPOS).map(([k, v]) => (
+                  <PdfPick key={k} className={'btn block pickopt' + (tipo === k ? ' primary' : '')} onFile={(f) => ler(f, k)}>
+                    <span><Icon name="file" /> {v.t}</span>
+                    <span className="pickdesc">{v.d}</span>
+                  </PdfPick>
+                ))}
+              </div>
+            )}
           <div className="hint">Depois de importar, apague o PDF baixado do aparelho (o app não consegue apagar arquivos sozinho).</div>
         </>
       )}
 
       {stage === 'review' && s && (
         <>
-          {s.nome
-            ? <div className="banner amber"><span className="grow">Paciente no PDF: <b>{s.nome}</b>. Confira se é o paciente do leito {leito}. O nome não é salvo.</span></div>
+          {nome
+            ? <div className="banner amber"><span className="grow">Paciente no PDF: <b>{nome}</b>. Confira se é o paciente do leito {leito}. O nome não é salvo.</span></div>
             : <div className="banner amber"><span className="grow">Não achei o nome no PDF: confira se é o paciente do leito {leito}.</span></div>}
-          {vazio && <div className="err">Não reconheci nenhum campo neste PDF. Veja o texto lido abaixo e me mande um exemplo tarjado para eu ajustar a leitura.</div>}
+          {contar(tipo, s) === 0 && <div className="err">Não reconheci nada neste PDF como {nomeTipo}. Veja o texto lido abaixo; se quiser, apague nome e prontuário e cole na conversa para eu ajustar a leitura.</div>}
 
-          <Group title="Identificação" n={s.ids.length}>
-            {s.ids.map((x, i) => (
-              <Row key={x.k} on={x.on} onToggle={(v) => upd('ids', i, { on: v })}
-                note={has(x.atual) && x.atual !== x.value ? `No leito hoje: ${x.k === 'internacao' ? ddmm(x.atual) : x.k === 'sexo' ? SEXO[x.atual] : x.atual}. Marcar substitui.` : undefined}>
-                <span>{x.label}: </span>
-                {x.k === 'internacao'
-                  ? <input type="date" value={x.value} onChange={(e) => upd('ids', i, { value: e.target.value })} style={{ maxWidth: 190 }} />
-                  : <b>{x.k === 'sexo' ? SEXO[x.value] : x.value}</b>}
-              </Row>
-            ))}
-          </Group>
-
-          <Group title="Diagnósticos" n={s.diagnosticos.length}>
-            {s.diagnosticos.map((d, i) => (
-              <Row key={d.id} on={d.on} onToggle={(v) => upd('diagnosticos', i, { on: v })} note={d.dup ? 'Já está no leito.' : d.cirurgia ? 'Cirurgia/procedimento: conta PO.' : undefined}>
-                <input value={d.texto} onChange={(e) => upd('diagnosticos', i, { texto: e.target.value })} />
-              </Row>
-            ))}
-          </Group>
-
-          {[['comorbidades', 'Comorbidades'], ['medicacoes', 'Medicações de uso contínuo'], ['alergias', 'Alergias']].map(([g, title]) => (
-            <Group key={g} title={title} n={s[g].length}>
-              {s[g].map((x, i) => (
-                <Row key={g + i} on={x.on} onToggle={(v) => upd(g, i, { on: v })} note={x.dup ? 'Já está no leito.' : undefined}>
-                  <input value={x.t} onChange={(e) => upd(g, i, { t: e.target.value })} />
-                </Row>
-              ))}
-            </Group>
-          ))}
-
-          <Group title="Dispositivos" n={s.dispositivos.length}>
-            {s.dispositivos.map((d, i) => (
-              <Row key={d.id} on={d.on} onToggle={(v) => upd('dispositivos', i, { on: v })} note={d.dup ? 'Já existe um igual no leito.' : `Lido: "${d.fonte}"`}>
-                <div className="flex wrap-f">
-                  <b>{d.nome}{d.sitio ? ' ' + d.sitio : ''}</b>
-                  <input type="date" value={d.data} onChange={(e) => upd('dispositivos', i, { data: e.target.value })} style={{ maxWidth: 170 }} aria-label="Data de inserção" />
-                  {d.origem && <span className="chip">{d.origem}</span>}
-                </div>
-              </Row>
-            ))}
-          </Group>
-
-          <Group title="Antimicrobianos" n={s.atbs.length}>
-            {s.atbs.map((a, i) => (
-              <Row key={a.id} on={a.on} onToggle={(v) => upd('atbs', i, { on: v })} note={a.dup ? 'Já está no leito.' : `Lido: "${a.fonte}"`}>
-                <div className="flex wrap-f">
-                  <b>{a.nome}</b>
-                  <span className="hint" style={{ marginTop: 0 }}>início</span>
-                  <input type="date" value={a.inicio} onChange={(e) => upd('atbs', i, { inicio: e.target.value })} style={{ maxWidth: 170 }} aria-label="Início" />
-                  {a.fim && <span className="chip">prévio, até {ddmm(a.fim)}</span>}
-                </div>
-              </Row>
-            ))}
-          </Group>
-
-          <Group title="Culturas" n={s.culturas.length}>
-            {s.culturas.map((c, i) => (
-              <Row key={c.id} on={c.on} onToggle={(v) => upd('culturas', i, { on: v })} note={c.dup ? 'Já está no leito.' : undefined}>
-                <span>{c.material}{c.data ? ` ${ddmm(c.data)}` : ''}: {c.resultado || 'pendente'}</span>
-              </Row>
-            ))}
-          </Group>
-
-          <Group title="Exames" n={s.exames.length}>
-            {s.exames.map((e, i) => (
-              <Row key={e.id} on={e.on} onToggle={(v) => upd('exames', i, { on: v })} note={e.dup ? 'Já está no leito.' : undefined}>
-                <span>{e.exame}{e.data ? ` ${ddmm(e.data)}` : ''}: {e.resultado || 'aguarda laudo'}</span>
-              </Row>
-            ))}
-          </Group>
-
-          {s.vent && (
-            <Group title="Ventilação" n={1}>
-              <Row on={s.vent.on} onToggle={(v) => setS((cur) => ({ ...cur, vent: { ...cur.vent, on: v } }))}
-                note={has(patient.vent.modo) ? `No leito hoje: ${patient.vent.modo}. Marcar substitui os parâmetros.` : undefined}>
-                <span>{[s.vent.modo, s.vent.pi && `PI ${s.vent.pi}`, s.vent.psup && `Psup ${s.vent.psup}`, s.vent.peep && `PEEP ${s.vent.peep}`, s.vent.fio2 && `FiO2 ${s.vent.fio2}%`, s.vent.fr && `FR ${s.vent.fr}`, s.vent.vc && `VC ${s.vent.vc}`, s.vent.fluxo && `${s.vent.fluxo} L/min`].filter(Boolean).join(' / ')}</span>
-              </Row>
-            </Group>
-          )}
+          {tipo === 'lab' && <ReviewLab s={s} setS={setS} upd={upd} patient={patient} />}
+          {tipo === 'imagem' && <ReviewImagem s={s} upd={upd} />}
+          {(tipo === 'evolucao' || !tipo) && <ReviewEvolucao s={s} setS={setS} upd={upd} patient={patient} />}
 
           <button className="btn sm" onClick={() => setVerTexto(!verTexto)}>{verTexto ? 'Esconder' : 'Ver'} o texto lido do PDF</button>
           {verTexto && <pre className="textout" style={{ marginTop: 8 }}>{texto}</pre>}
 
           <div className="flex" style={{ marginTop: 14 }}>
             <button className="btn primary grow" onClick={aplicar}><Icon name="check" /> Importar marcados</button>
-            <button className="btn" onClick={() => { setTexto(''); setS(null); onClose(); }}>Cancelar</button>
+            <button className="btn" onClick={() => { setTexto(''); setS(null); setNome(''); onClose(); }}>Cancelar</button>
           </div>
           <div className="hint">Depois de importar, apague o PDF baixado do aparelho.</div>
         </>
