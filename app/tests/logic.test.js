@@ -130,7 +130,7 @@ function pacienteModelo() {
     vent: { modo: 'PCV', pi: '14', peep: '8', fio2: '35', fr: '18', vc: '450' },
     neuro: { escala: 'RASS', valor: '-2', pupilas: 'isocóricas, fotorreagentes', picMin: '8', picMax: '14', obs: 'Nimodipino - dia 7 de 21' },
     vitais: { pa: '130/80', fc: '82', sat: '97', tax: '37,2' },
-    h24: { taxMax: '37,8', taxPicos: '1 pico', pasMin: '118', pasMax: '152', padMin: '60', padMax: '88', fcMin: '72', fcMax: '98', gliMin: '132', gliMax: '178', insulina: '6 UI', entradas: '3000', drenos: '260', du: '2100', uf: '' },
+    h24: { taxMax: '37,8', taxPicos: '1 pico', pasMin: '118', pasMax: '152', padMin: '60', padMax: '88', fcMin: '72', fcMax: '98', gliMin: '132', gliMax: '178', insulina: '6 UI', entradas: '3000', drenos: '80', du: '2100', uf: '' },
     bhAcumulado: 2210,
     labs: { data: '2026-10-27', hb: '9,4', leuc: '12.800', cr: '0,79', na: '147' },
     labsAnt: { data: '2026-10-26', hb: '9,8', leuc: '14.200', cr: '0,82', na: '144' },
@@ -314,5 +314,33 @@ describe('configuração CTI 1 - Posto 2', () => {
   it('configuração editada pelo usuário fica como está', () => {
     const s = _norm({ settings: { unidade: 'CTI 2', leitos: [{ id: 'b1', label: '01' }] }, beds: {} });
     expect(s.settings.unidade).toBe('CTI 2');
+  });
+});
+
+import { calcBH as _bh, drenosTotal as _dt } from '../src/lib/clinical.js';
+import { h24Lines as _h24 } from '../src/lib/text.js';
+import { novoDia as _novo } from '../src/lib/rollover.js';
+import { newPatient as _np } from '../src/lib/model.js';
+describe('balanço com débito de cada dreno', () => {
+  const dev = (nome, debito, extra = {}) => ({ id: nome, nome, data: '2026-11-01', sitio: '', sitios: [], debito, ...extra });
+  const devs = [dev('DVE', '120'), dev('Hemovac', '330', { sitio: 'Flanco D' }), dev('SNG em sifonagem', '200'), dev('Ostomia', '400'), dev('SVD', '999'), dev('Dreno torácico', '')];
+  it('soma só os dispositivos que contam, vazio não entra', () => {
+    const dr = _dt({ drenos: '' }, devs);
+    expect(dr.total).toBe(650);
+    expect(dr.itens.map((x) => x.nome)).toEqual(['DVE', 'Hemovac Flanco D', 'SNG em sifonagem']);
+    expect(_bh({ entradas: '2.500', du: '1.200', drenos: '50', uf: '' }, devs)).toBe(2500 - 700 - 1200);
+  });
+  it('dispositivo pode ser ligado ou desligado à mão', () => {
+    const d2 = [dev('Dreno pigtail', '80', { balanco: true }), dev('DVE', '100', { balanco: false })];
+    expect(_dt({}, d2).total).toBe(80);
+  });
+  it('aparece na evolução e zera no round seguinte', () => {
+    const p = _np('2026-11-01');
+    p.dispositivos = devs;
+    p.h24.entradas = '2000';
+    expect(_h24(p).join('\n')).toContain('Drenos 650 ml (DVE 120 / Hemovac Flanco D 330 / SNG em sifonagem 200)');
+    const n = _novo(p, '2026-11-02');
+    expect(n.bhAcumulado).toBe(1350);
+    expect(n.dispositivos.every((d) => d.debito === '')).toBe(true);
   });
 });

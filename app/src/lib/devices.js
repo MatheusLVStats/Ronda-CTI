@@ -39,6 +39,15 @@ export const isOutro = (n) => !KNOWN.has(n);
 export const hasDebito = (n) => isAbdDrain(n) || isThorax(n) || isDVE(n) || isSngSifon(n);
 export const isViaAereaInvasiva = (n) => n === 'TOT' || n === 'TQT';
 
+// Dispositivos que entram no balanço como dreno (perda). DVE e SNG em sifonagem contam; ostomia não (fezes).
+// Cada dispositivo pode ser ligado ou desligado à mão (campo "balanco"); sem escolha, vale o tipo.
+export const DRENO_PADRAO = new Set(['Hemovac', 'Dreno de cavidade', 'Dreno tubular/laminar', 'Dreno torácico', 'DVE', 'SNG em sifonagem']);
+const NUNCA_DRENO = new Set(['TOT', 'TQT', 'CVC', 'PICC', 'CDL', 'PAI', 'Acesso periférico', 'Cateter de PIC', 'SVD', 'SNE/SNG']);
+export const podeSerDreno = (n) => !NUNCA_DRENO.has(n);
+export const contaNoBH = (d) => podeSerDreno(d.nome) && (typeof d.balanco === 'boolean' ? d.balanco : DRENO_PADRAO.has(d.nome));
+export const drenosDoBH = (devs) => (devs || []).filter(contaNoBH);
+export const nomeDreno = (d) => [d.nome, sitioTexto(d)].filter(Boolean).join(' ');
+
 export function catOf(name) {
   for (const g of CATALOG) if (g.items.includes(name)) return g.cat;
   return 'Outro';

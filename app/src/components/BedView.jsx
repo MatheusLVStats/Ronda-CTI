@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ddmm, todayISO, diasDesde } from '../lib/dates.js';
-import { has, show, fmtNum, fmtSigned, lines } from '../lib/format.js';
-import { ckdEpi2021, calcBH, diureseMlKgH } from '../lib/clinical.js';
+import { has, show, fmtNum, fmtSigned, lines, fmtInt } from '../lib/format.js';
+import { ckdEpi2021, calcBH, drenosTotal, diureseMlKgH } from '../lib/clinical.js';
+import { drenosDoBH, nomeDreno, podeSerDreno, contaNoBH } from '../lib/devices.js';
 import { DRUGS, infusionDoses } from '../lib/drugs.js';
 import {
   CATALOG, ORIGENS, SITE_OPTS, ABD_REGIOES, ABD_CIRURGICAS, TORAX_SITIOS, SITE_AMPLO, MONTAGENS,
@@ -95,7 +96,13 @@ function DeviceItem({ d, hoje, onChange, onDelete }) {
           <div><label>Estado</label><Seg options={['aberta', 'fechada']} value={d.estado} onChange={(v) => set({ estado: v })} /></div>
         </div>
       )}
-      {(isAbdDrain(d.nome) || isThorax(d.nome) || isDVE(d.nome) || isSngSifon(d.nome)) && (
+      {podeSerDreno(d.nome) && (
+        <label className="checkline">
+          <input type="checkbox" checked={contaNoBH(d)} onChange={(e) => set({ balanco: e.target.checked })} />
+          Entra no balanço como dreno (débito aparece em Últimas 24 h)
+        </label>
+      )}
+      {(isAbdDrain(d.nome) || isThorax(d.nome) || isDVE(d.nome) || isSngSifon(d.nome) || contaNoBH(d)) && (
         <div className="row c2">
           <Field label={isSngSifon(d.nome) ? 'Resíduo 24 h (ml)' : 'Débito 24 h (ml)'} num value={d.debito} onChange={(v) => set({ debito: v })}
             hint={isDVE(d.nome) ? 'Referência de desmame: < 250 ml/24 h (protocolo institucional publicado, não regra universal)' : undefined} />
@@ -165,7 +172,9 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
 
   const f = bedFacts(p, hoje);
   const tfg = ckdEpi2021(p.labs.cr, p.idade, p.sexo);
-  const bh = calcBH(p.h24);
+  const bh = calcBH(p.h24, p.dispositivos);
+  const drenos = drenosDoBH(p.dispositivos);
+  const dr = drenosTotal(p.h24, p.dispositivos);
   const via = p.dispositivos.find((d) => isViaAereaInvasiva(d.nome));
   const conf = p.conferir || {};
   const stale = p.diaRound !== hoje;
@@ -480,12 +489,26 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
               <Field label="Glicemia máx" num value={p.h24.gliMax} onChange={(v) => setIn('h24', { gliMax: v })} />
               <Field label="Insulina (obs.)" value={p.h24.insulina} onChange={(v) => setIn('h24', { insulina: v })} placeholder="ex.: 34 UI" />
             </div>
-            <div className="row c4">
+            <div className="row c3">
               <Field label="Ganhos (ml)" num value={p.h24.entradas} onChange={(v) => setIn('h24', { entradas: v })} hint="Total da folha" />
               <Field label="Diurese (ml)" num value={p.h24.du} onChange={(v) => setIn('h24', { du: v })}
                 hint={diureseMlKgH(p.h24.du, p.peso) !== null ? `${fmtNum(diureseMlKgH(p.h24.du, p.peso), 1)} ml/kg/h` : undefined} />
-              <Field label="Drenos (ml)" num value={p.h24.drenos} onChange={(v) => setIn('h24', { drenos: v })} hint="Somatório à mão" />
               <Field label="UF diálise (ml)" num value={p.h24.uf} onChange={(v) => setIn('h24', { uf: v })} hint="Vazio = não dialisou" />
+            </div>
+            <div className="drenobox">
+              <div className="lbl">Drenos - débito 24 h (ml){dr ? ` - total ${fmtInt(dr.total)} ml` : ''}</div>
+              {drenos.map((d) => (
+                <div className="drenorow" key={d.id}>
+                  <span className="grow">{nomeDreno(d)}</span>
+                  <input inputMode="decimal" value={d.debito || ''} aria-label={`Débito ${nomeDreno(d)}`} placeholder="ml"
+                    onChange={(e) => listSet('dispositivos', d.id, { debito: e.target.value })} />
+                </div>
+              ))}
+              <div className="drenorow">
+                <span className="grow">Outros drenos</span>
+                <input inputMode="decimal" value={p.h24.drenos || ''} aria-label="Outros drenos" placeholder="ml" onChange={(e) => setIn('h24', { drenos: e.target.value })} />
+              </div>
+              {!drenos.length && <div className="hint">Hemovac, drenos de cavidade, tubular/laminar, torácico, DVE e SNG em sifonagem aparecem aqui sozinhos ao serem lançados em Dispositivos.</div>}
             </div>
             <div className="calcbox">
               BH 24 h: <b>{bh === null ? '-' : `${fmtSigned(bh)} ml`}</b>

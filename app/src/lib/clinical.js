@@ -1,3 +1,4 @@
+import { drenosDoBH, nomeDreno } from './devices.js';
 // Cálculos clínicos a partir do que o médico informou. Sem sugestão de conduta ou dose.
 import { toNum, has } from './format.js';
 
@@ -21,17 +22,24 @@ export function ckdEpi2021(cr, idade, sexo) {
   return { tfg: Math.round(tfg), classe };
 }
 
+const num0 = (v) => { const x = toNum(v); return Number.isFinite(x) ? x : 0; };
+
+// Perdas por dreno: débito de cada dispositivo que conta no balanço + "outros drenos" digitado à mão.
+// Retorna null quando nenhum foi preenchido.
+export function drenosTotal(h, devs) {
+  const itens = drenosDoBH(devs).filter((d) => has(d.debito)).map((d) => ({ nome: nomeDreno(d), v: num0(d.debito) }));
+  if (h && has(h.drenos)) itens.push({ nome: 'outros', v: num0(h.drenos) });
+  if (!itens.length) return null;
+  return { total: Math.round(itens.reduce((a, x) => a + x.v, 0)), itens };
+}
+
 // Balanço hídrico 24 h: ganhos - drenos - diurese - UF.
 // Campo vazio = sem informação (não entra); 0 digitado entra como zero.
-export function calcBH(h) {
+export function calcBH(h, devs = []) {
   if (!h) return null;
-  const keys = ['entradas', 'drenos', 'du', 'uf'];
-  if (!keys.some((k) => has(h[k]))) return null;
-  const n = (v) => {
-    const x = toNum(v);
-    return Number.isFinite(x) ? x : 0;
-  };
-  return Math.round(n(h.entradas) - n(h.drenos) - n(h.du) - n(h.uf));
+  const dr = drenosTotal(h, devs);
+  if (!['entradas', 'du', 'uf'].some((k) => has(h[k])) && !dr) return null;
+  return Math.round(num0(h.entradas) - (dr ? dr.total : 0) - num0(h.du) - num0(h.uf));
 }
 
 // Diurese em ml/kg/h no período de 24 h.

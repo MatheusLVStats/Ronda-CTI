@@ -3,7 +3,7 @@
 // só letras, números, acentos e / - : > < + % , . ( )
 import { ddmm, ddmmyyyy, diasDesde, horaAtual } from './dates.js';
 import { has, show, fmtNum, fmtInt, fmtSigned, toNum, lines, tiMedSafe } from './format.js';
-import { calcBH, ckdEpi2021, diureseMlKgH } from './clinical.js';
+import { calcBH, drenosTotal, ckdEpi2021, diureseMlKgH } from './clinical.js';
 import { infusionLine } from './drugs.js';
 import { deviceLine, dveLine, isDVE, isViaAereaInvasiva, statusDispositivo } from './devices.js';
 import { LAB_KEYS, GASO_KEYS, CHECK_DEFS } from './model.js';
@@ -137,9 +137,13 @@ export function h24Lines(p) {
     const mk = diureseMlKgH(h.du, p.peso);
     out.push(`Diurese ${fmtInt(toNum(h.du))} ml` + (mk !== null ? ` (${fmtNum(mk, 1)} ml/kg/h)` : ''));
   }
-  if (has(h.drenos)) out.push(`Drenos ${fmtInt(toNum(h.drenos))} ml`);
+  const dr = drenosTotal(h, p.dispositivos);
+  if (dr) {
+    const det = dr.itens.length > 1 || dr.itens[0].nome !== 'outros' ? ` (${dr.itens.map((x) => `${x.nome} ${fmtInt(x.v)}`).join(' / ')})` : '';
+    out.push(`Drenos ${fmtInt(dr.total)} ml${det}`);
+  }
   if (has(h.uf)) out.push(`UF ${fmtInt(toNum(h.uf))} ml`);
-  const bh = calcBH(h);
+  const bh = calcBH(h, p.dispositivos);
   if (bh !== null) {
     const acum = (Number(p.bhAcumulado) || 0) + bh;
     out.push(`BH ${fmtSigned(bh)} ml` + (Number(p.bhAcumulado) ? ` / acumulado ${fmtSigned(acum)} ml` : ''));
@@ -310,7 +314,7 @@ export function buildPassagem(entries, ctx) {
     out.push(`Dispositivos: ${devs.length ? devs.join('; ') : sr}`);
     const atb = atbLines(p, hoje).filter((l) => !l.startsWith('Prévio'));
     out.push(`ATB: ${atb.length ? atb.join('; ') : sr}`);
-    const bh = calcBH(p.h24);
+    const bh = calcBH(p.h24, p.dispositivos);
     out.push(`BH: ${bh === null ? sr : fmtSigned(bh) + ' ml' + (Number(p.bhAcumulado) ? ` / acumulado ${fmtSigned((Number(p.bhAcumulado) || 0) + bh)} ml` : '')}`);
     const pend = pendenciaLines(p);
     out.push(`Pendências: ${pend.length ? pend.join('; ') : sr}`);

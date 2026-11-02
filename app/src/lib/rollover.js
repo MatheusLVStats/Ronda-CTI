@@ -12,7 +12,7 @@ const filled = (o) => Object.entries(o || {}).some(([k, v]) => k !== 'data' && k
 export function novoDia(patient, hoje) {
   const p = normalizePatient(patient, hoje);
   if (!p || p.diaRound === hoje) return p;
-  const bh = calcBH(p.h24);
+  const bh = calcBH(p.h24, p.dispositivos);
   const n = { ...p };
   n.bhAcumulado = (Number(p.bhAcumulado) || 0) + (bh === null ? 0 : bh);
   n.h24 = emptyH24();

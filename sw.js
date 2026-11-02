@@ -1,7 +1,7 @@
-// Ronda CTI - service worker. Versão: 2.0.0-202611020952
+// Ronda CTI - service worker. Versão: 2.0.0-202611021114
 // Página: rede primeiro (pega a versão nova), cache se estiver sem internet.
 // Arquivos com hash em assets/: cache primeiro. Nada de outros domínios é guardado.
-const CACHE = 'ronda-cti-2.0.0-202611020952';
+const CACHE = 'ronda-cti-2.0.0-202611021114';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['./', './index.html', './manifest.webmanifest', './icons/icon-192.png'])).then(() => self.skipWaiting()));

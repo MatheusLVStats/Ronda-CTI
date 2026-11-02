@@ -273,3 +273,9 @@ label, .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--mu
   #root { display: none !important; }
   .print-root { position: static; left: auto; }
 }
+
+.drenobox { border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; margin-bottom: 10px; background: var(--panel-2); }
+.drenorow { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 14px; }
+.drenorow input { width: 110px; flex: none; }
+.checkline { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink, #1a2433); font-weight: 500; margin: 0 0 10px; }
+.checkline input { width: 18px; height: 18px; min-height: 0; accent-color: var(--primary); }
