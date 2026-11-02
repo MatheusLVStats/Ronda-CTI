@@ -57,7 +57,7 @@ function Row({ on, onToggle, children, note }) {
 const TIPOS = {
   evolucao: { t: 'Evolução ou sumário', d: 'Transferência ou admissão de outro setor' },
   lab: { t: 'Laboratório', d: 'Hemograma, bioquímica, coagulograma e gasometria' },
-  imagem: { t: 'Laudo de imagem', d: 'TC, RX, USG, RM, ecocardiograma, DTC...' },
+  imagem: { t: 'Laudo de imagem', d: 'TC, RX, USG, RM, eco, DTC... Pode escolher vários PDFs de uma vez' },
 };
 const LABEL = Object.fromEntries([...LAB_KEYS, ...GASO_KEYS]);
 
@@ -215,10 +215,15 @@ function ReviewImagem({ s, upd }) {
     <Group title="Laudos" n={s.laudos.length}>
       {s.laudos.map((e, i) => (
         <Row key={e.id} on={e.on} onToggle={(v) => upd('laudos', i, { on: v })}
-          note={[e.nota, !has(e.resultado) && 'Não achei a conclusão: digite ou copie do laudo.'].filter(Boolean).join(' ') || undefined}>
+          note={[e.resumo && !e.completo && 'Laudo sem conclusão: vieram só os achados alterados do relatório.', e.nota, !has(e.resultado) && 'Não achei a conclusão: digite ou copie do laudo.'].filter(Boolean).join(' ') || undefined}>
           <input value={e.exame} onChange={(ev) => upd('laudos', i, { exame: ev.target.value })} aria-label="Exame" style={{ marginBottom: 6 }} />
           <input type="date" value={e.data} onChange={(ev) => upd('laudos', i, { data: ev.target.value })} aria-label="Data do exame" style={{ maxWidth: 190, marginBottom: 6 }} />
-          <textarea rows={3} value={e.resultado} onChange={(ev) => upd('laudos', i, { resultado: ev.target.value })} aria-label="Conclusão" />
+          <textarea rows={Math.min(10, Math.max(3, Math.ceil(String(e.resultado || '').length / 38)))} value={e.resultado} onChange={(ev) => upd('laudos', i, { resultado: ev.target.value })} aria-label="Conclusão" />
+          {e.relatorio && (
+            <button className="btn sm" style={{ marginTop: 6 }} onClick={() => upd('laudos', i, e.completo ? { resultado: e.resumoTxt, completo: false } : { resumoTxt: e.resultado, resultado: e.relatorio, completo: true })}>
+              {e.completo ? 'Voltar aos achados alterados' : 'Usar o relatório completo'}
+            </button>
+          )}
         </Row>
       ))}
     </Group>
@@ -232,11 +237,15 @@ const contar = (tipo, s) => {
 };
 
 // Botão que abre o seletor de arquivo direto (um toque), também no Safari do iPhone.
-export function PdfPick({ className = 'btn', children, onFile }) {
+export function PdfPick({ className = 'btn', children, onFile, multiple }) {
   return (
     <label className={className + ' pdfpick'}>
-      <input type="file" accept="application/pdf,.pdf" className="file-hidden"
-        onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) onFile(f); }} />
+      <input type="file" accept="application/pdf,.pdf" className="file-hidden" multiple={!!multiple}
+        onChange={(e) => {
+          const fs = Array.from(e.target.files || []);
+          e.target.value = '';
+          if (fs.length) onFile(multiple ? fs : fs[0]);
+        }} />
       {children}
     </label>
   );
@@ -253,19 +262,23 @@ export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, fil
   const iniciado = useRef(false);
 
   async function ler(file, t) {
-    if (!file) return;
+    if (!file || (Array.isArray(file) && !file.length)) return;
     setTipo(t);
     setStage('reading');
     setErr('');
     try {
       const { pdfToText } = await import('../lib/pdftext.js');
-      const bruto = await pdfToText(file);
+      const arquivos = Array.isArray(file) ? file : [file];
+      const textos = [];
+      for (const a of arquivos) textos.push(await pdfToText(a));
+      const bruto = textos.join('\n');
       if (!bruto.trim()) throw new Error('vazio');
-      const plano = bruto.replace(/\t/g, ' ');
-      setTexto(bruto);
-      setNome(header(bruto, hoje).nome || '');
+      setTexto(textos.join('\n\n----------\n\n'));
+      // Vários laudos: mostra todos os nomes diferentes, para conferir se são do mesmo paciente.
+      const nomes = [...new Set(textos.map((x) => header(x, hoje).nome).filter(Boolean))];
+      setNome(nomes.join(' / '));
       if (t === 'lab') setS(prepareLab(parseLab(bruto, hoje), patient));
-      else if (t === 'imagem') setS(prepareLaudos(parseLaudos(plano, hoje), patient));
+      else if (t === 'imagem') setS(prepareLaudos(textos.flatMap((x) => parseLaudos(x.replace(/\t/g, ' '), hoje)), patient));
       else setS(prepare(parseEvolucao(bruto, hoje), patient, hoje));
       setStage('review');
     } catch (e) {
@@ -285,7 +298,7 @@ export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, fil
   const upd = (group, i, patch) => setS((cur) => ({ ...cur, [group]: cur[group].map((x, j) => (j === i ? { ...x, ...patch } : x)) }));
 
   function aplicar() {
-    const on = (arr) => arr.filter((x) => x.on).map(({ on: _o, dup: _d, nota: _n, ...rest }) => rest);
+    const on = (arr) => arr.filter((x) => x.on).map(({ on: _o, dup: _d, nota: _n, relatorio: _r, resumo: _s, resumoTxt: _t, completo: _c, ...rest }) => rest);
     let sel;
     let total;
     if (tipo === 'lab') {
@@ -330,7 +343,7 @@ export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, fil
             : (
               <div className="row">
                 {Object.entries(TIPOS).map(([k, v]) => (
-                  <PdfPick key={k} className={'btn block pickopt' + (tipo === k ? ' primary' : '')} onFile={(f) => ler(f, k)}>
+                  <PdfPick key={k} className={'btn block pickopt' + (tipo === k ? ' primary' : '')} multiple={k === 'imagem'} onFile={(f) => ler(f, k)}>
                     <span><Icon name="file" /> {v.t}</span>
                     <span className="pickdesc">{v.d}</span>
                   </PdfPick>

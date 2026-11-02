@@ -247,7 +247,7 @@ function nomeExame(raw) {
 export function parseLaudos(text, hoje) {
   const linhas = String(text || '').split('\n').map(clean).filter(Boolean);
   const docData = (() => {
-    const m = String(text || '').match(/(?:data\s+do\s+exame|realizad[oa]\s+em|data\s+de\s+realiza[cç][aã]o|data\s*:)\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
+    const m = String(text || '').match(/(?:data\s+do\s+exame|realizad[oa]\s+em|data\s+de\s+realiza[cç][aã]o|data\s*:)\s*:?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
     return m ? findDate(m[1], hoje) : dataRecente(linhas, hoje);
   })();
   const blocos = [];
@@ -263,6 +263,8 @@ export function parseLaudos(text, hoje) {
       continue;
     }
     if (!cur) continue;
+    // "TC DE CRÂNIO" seguido de "TOMOGRAFIA COMPUTADORIZADA DO CRÂNIO": fica o nome completo.
+    if (isTitulo && !cur.linhas.length && !label && raw.length > cur.titulo.length) { cur.titulo = raw; continue; }
     cur.linhas.push(raw);
     if (cur.fim) continue;
     const c = n.match(CONCL_RE);
@@ -280,13 +282,52 @@ export function parseLaudos(text, hoje) {
   return blocos.map((b) => {
     const recente = (d) => d && d >= addDays(hoje, -400) && d <= hoje;
     const dataLinha = b.linhas.find((l) => /data|realizad|exame em/i.test(l) && !/nasc/i.test(l) && recente(findDate(l, hoje)));
-    return {
-      id: uid(),
-      exame: nomeExame(b.titulo),
-      data: dataLinha ? findDate(dataLinha, hoje) : docData,
-      resultado: b.conclusao.join(' ').replace(/\s+/g, ' ').replace(/^[-•]\s*/, '').trim(),
-    };
+    const conclusao = b.conclusao.join(' ').replace(/\s+/g, ' ').replace(/^[-•]\s*/, '').trim();
+    const e = { id: uid(), exame: nomeExame(b.titulo), data: dataLinha ? findDate(dataLinha, hoje) : docData, resultado: conclusao };
+    if (!conclusao) {
+      // Laudo sem "Conclusão" (só "Relatório"): traz os achados alterados; o relatório inteiro fica à mão.
+      const rel = relatorio(b.linhas);
+      if (rel.length) {
+        e.relatorio = rel.join(' ');
+        const alterados = rel.filter((f) => !achadoNormal(f));
+        e.resultado = alterados.length ? alterados.join(' ') : 'Sem alterações descritas no relatório.';
+        e.resumo = true;
+      }
+    }
+    return e;
   }).filter((e) => has(e.exame));
+}
+
+const SECAO_REL = /^(relatorio|analise|achados|descricao|laudo)\b\s*:?\s*/;
+const FIM_REL = /^(crm\b|dra?\.?\s|laudo (assinado|liberado)|assinado|hospital\b|av\.?\s|avenida\b|rua\b|rio de janeiro|\d+ de \d+$|pagina\b)/;
+
+// Frases do relatório, sem o nome do radiologista que vem antes do CRM.
+function relatorio(linhas) {
+  const i = linhas.findIndex((l) => SECAO_REL.test(strip(l)));
+  if (i < 0) return [];
+  const out = [];
+  const primeira = linhas[i].replace(/^\S+\s*:?\s*/, '');
+  if (primeira && !SECAO_REL.test(strip(primeira) + ':')) out.push(primeira);
+  for (const l of linhas.slice(i + 1)) {
+    const n = strip(l);
+    if (FIM_REL.test(n) || OUTRA_SECAO.test(n) || CONCL_RE.test(n)) {
+      if (/^crm\b/.test(n) && out.length && !/[.;:]$/.test(out[out.length - 1])) out.pop();
+      break;
+    }
+    out.push(l);
+  }
+  return out.join(' ').replace(/\s+/g, ' ').replace(/([.;])\s+(?=[A-ZÀ-Ú])/g, '$1\n').split('\n').map((x) => x.trim()).filter((x) => x.length > 3);
+}
+
+const ALTERADO = /(hematoma|hemorrag|sangr|fratura|consolida|nodul|massa|lesao|colec|abscess|hipodens|hiperdens|hipoatenua|hiperatenua|isquemi|infarto|edema|desvio|atelect|opacidade|vidro fosco|espessament|estenose|oclus|trombo|pneumoperit|pneumoencef|herni|calcul|aumentad|reduzid|cisto|tumor|neoplas|metast|compress|luxa|osteofit|degenera|ectasi|aneurism|dilatad|distendid|contus|enfisema|pneumotorax (a|à) |derrame (pleural )?(a|à|bilateral|pequeno|moderado|volumoso|laminar))/;
+const NORMAL = /(dentro dos limites|\bnorma(l|is)\b|preservad|sem (anormalidade|alterac|sinais)|aspecto (anatomico|habitual|normal|preservado)|configuracao anatomica|habituais?\b|conservad|integr[oa]s?\b|mantid[oa]s?\b|regulares\b|topic[oa]s\b|paredes finas|sem evidencia)/;
+
+// Frase que só descreve normalidade (não entra no resumo).
+export function achadoNormal(frase) {
+  const n = strip(frase);
+  const negativa = /^(ausencia de|sem |nao (ha|se (observa|caracteriza|identifica|evidencia))|nao foram)/.test(n) && !/(,\s*(com|porem|exceto|mas)\b|\bporem\b|\bexceto\b)/.test(n);
+  if (negativa) return true;
+  return NORMAL.test(n) && !ALTERADO.test(n);
 }
 
 // Mesmo exame = mesma data e nome compatível ("TC crânio" = "TC de crânio sem contraste").

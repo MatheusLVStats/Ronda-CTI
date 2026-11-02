@@ -567,7 +567,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
             ))}
             <div className="flex wrap-f">
               <button className="btn ghost sm" onClick={() => listAdd('exames', { exame: '', data: hoje, resultado: '' })}><Icon name="plus" /> Exame</button>
-              <PdfPick className="btn ghost sm" onFile={(f) => setImportar({ tipo: 'imagem', file: f })}><Icon name="file" /> Importar laudo em PDF</PdfPick>
+              <PdfPick className="btn ghost sm" multiple onFile={(f) => setImportar({ tipo: 'imagem', file: f })}><Icon name="file" /> Importar laudo em PDF</PdfPick>
             </div>
           </Section>
 

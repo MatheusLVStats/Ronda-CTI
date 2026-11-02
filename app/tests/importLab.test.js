@@ -294,3 +294,30 @@ describe('laboratório com letras espaçadas e RESULTADO em linha separada', () 
     expect(r.outros.map((o) => `${o.label} ${o.valor}`)).toEqual(['Glicose 244']);
   });
 });
+
+describe('laudo do hospital (só relatório, sem conclusão)', () => {
+  const laudo = (titulo, longo, achados) => [
+    'PACIENTE: FULANO FICTICIO', 'REGISTRO: 000', 'DATA DE NASCIMENTO: 01/01/1960 - 66', 'DATA DO EXAME: 01/11/2026', 'MÉDICO SOLICITANTE: FULANO',
+    titulo, longo, 'Técnica:', 'Estudo tomográfico realizado sem administração do meio de', 'contraste venoso.', 'Relatório:', ...achados,
+    'Radiologista Exemplo', 'CRM:000000', 'Hospital Exemplo Tomografia Computadorizada Multislice', 'Av. Exemplo, 100 Ultrassonografia - Eco Vascular - Doppler', '1 DE 1',
+  ].join('\n');
+  it('traz só os achados alterados, com o nome completo do exame', () => {
+    const [e] = parseLaudos(laudo('TC DE CRÂNIO', 'TOMOGRAFIA COMPUTADORIZADA DO CRÂNIO', [
+      'Hematoma epidural, medindo cerca de 6,6 x 1,9 cm, temporal direito, determinando',
+      'desvio da linha média em cerca de 0,4 cm.',
+      'Parênquima cerebral com valores de atenuação dentro dos limites da normalidade.',
+      'Ventrículos laterais de forma e dimensões normais.',
+      'Tronco cerebral e cerebelo de aspecto preservado.',
+    ]), HOJE);
+    expect(e).toMatchObject({ exame: 'TC do crânio', data: '2026-11-01', resumo: true,
+      resultado: 'Hematoma epidural, medindo cerca de 6,6 x 1,9 cm, temporal direito, determinando desvio da linha média em cerca de 0,4 cm.' });
+    expect(e.relatorio).toContain('Tronco cerebral e cerebelo de aspecto preservado.');
+    expect(e.relatorio).not.toContain('Radiologista');
+  });
+  it('exame normal', () => {
+    const [e] = parseLaudos(laudo('TC DE TÓRAX', 'TOMOGRAFIA COMPUTADORIZADA DO TÓRAX', [
+      'Parênquima pulmonar com coeficiente de atenuação preservado.', 'Ausência de derrame pleural ou pneumotórax.', 'Coração de volume normal.',
+    ]), HOJE);
+    expect(e).toMatchObject({ exame: 'TC do tórax', resultado: 'Sem alterações descritas no relatório.' });
+  });
+});
