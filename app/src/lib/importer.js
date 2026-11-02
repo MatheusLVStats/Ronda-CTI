@@ -150,6 +150,7 @@ const DEVICE_RULES = [
   ['SVD', /\b(svd|cvd|sonda vesical|cateter vesical)\b/],
   ['SNG em sifonagem', /\b(sng|sonda nasogastrica)\b.*\b(sifonagem|aberta|drenagem)\b/],
   ['SNE/SNG', /\b(sne|sng|cne|cng|sonda nasoenteral|sonda nasogastrica|cateter naso(enteral|gastrico))\b/],
+  ['Hemovac (neuro)', /\bhemovac\b.*\b(subgaleal|epidural|subdural|crani|cabeca|cefalic)|\b(subgaleal|epidural|subdural)\b.*\bhemovac\b/],
   ['Hemovac', /\bhemovac\b/],
   ['Dreno torácico', /\bdreno( de)? torax|dreno toracico|drenagem pleural\b/],
   ['Dreno de cavidade', /\bdreno( de)? (cavidade|abdominal|penrose|tubular|laminar)\b/],

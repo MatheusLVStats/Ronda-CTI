@@ -344,3 +344,13 @@ describe('balanço com débito de cada dreno', () => {
     expect(n.dispositivos.every((d) => d.debito === '')).toBe(true);
   });
 });
+
+import { CATALOG as _CAT, contaNoBH as _conta, deviceLine as _dl } from '../src/lib/devices.js';
+describe('Hemovac neurológico', () => {
+  it('está nos dispositivos neuro, entra no balanço e mostra o sítio', () => {
+    expect(_CAT.find((g) => g.cat === 'Neuro').items).toContain('Hemovac (neuro)');
+    const d = { nome: 'Hemovac (neuro)', data: '2026-11-01', sitio: 'Subgaleal D', sitios: [], debito: '80' };
+    expect(_conta(d)).toBe(true);
+    expect(_dl(d, '2026-11-02')).toBe('D1 (D0 01/11) Hemovac (neuro) Subgaleal D - 80 ml/24 h');
+  });
+});

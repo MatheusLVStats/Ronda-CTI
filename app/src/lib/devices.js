@@ -5,7 +5,7 @@ import { has, show } from './format.js';
 export const CATALOG = [
   { cat: 'Via aérea', items: ['TOT', 'TQT'] },
   { cat: 'Vascular', items: ['CVC', 'PICC', 'CDL', 'PAI', 'Acesso periférico'] },
-  { cat: 'Neuro', items: ['DVE', 'Cateter de PIC', 'DVP/DLP'] },
+  { cat: 'Neuro', items: ['DVE', 'Cateter de PIC', 'DVP/DLP', 'Hemovac (neuro)'] },
   { cat: 'Drenos', items: ['Hemovac', 'Dreno de cavidade', 'Dreno tubular/laminar', 'Dreno torácico'] },
   { cat: 'Urinário / digestivo', items: ['SVD', 'SNE/SNG', 'SNG em sifonagem', 'Ostomia'] },
 ];
@@ -18,6 +18,7 @@ export const SITE_OPTS = {
   CDL: VASC_SITES,
   PICC: ['Braço D', 'Braço E'],
   PAI: ['ARE', 'ARD', 'Braquial E', 'Braquial D', 'AFE', 'AFD'],
+  'Hemovac (neuro)': ['Subgaleal D', 'Subgaleal E', 'Epidural D', 'Epidural E', 'Subdural D', 'Subdural E', 'Coluna'],
 };
 export const ABD_REGIOES = ['Hipocôndrio D', 'Epigástrio', 'Hipocôndrio E', 'Flanco D', 'Mesogástrio', 'Flanco E', 'Fossa ilíaca D', 'Hipogástrio', 'Fossa ilíaca E'];
 export const ABD_CIRURGICAS = ['Subhepático', 'Subfrênico D', 'Subfrênico E', 'Pélvico/fundo de saco', 'Leito cirúrgico', 'Parietocólica D', 'Parietocólica E'];
@@ -41,7 +42,7 @@ export const isViaAereaInvasiva = (n) => n === 'TOT' || n === 'TQT';
 
 // Dispositivos que entram no balanço como dreno (perda). DVE e SNG em sifonagem contam; ostomia não (fezes).
 // Cada dispositivo pode ser ligado ou desligado à mão (campo "balanco"); sem escolha, vale o tipo.
-export const DRENO_PADRAO = new Set(['Hemovac', 'Dreno de cavidade', 'Dreno tubular/laminar', 'Dreno torácico', 'DVE', 'SNG em sifonagem']);
+export const DRENO_PADRAO = new Set(['Hemovac', 'Hemovac (neuro)', 'Dreno de cavidade', 'Dreno tubular/laminar', 'Dreno torácico', 'DVE', 'SNG em sifonagem']);
 const NUNCA_DRENO = new Set(['TOT', 'TQT', 'CVC', 'PICC', 'CDL', 'PAI', 'Acesso periférico', 'Cateter de PIC', 'SVD', 'SNE/SNG']);
 export const podeSerDreno = (n) => !NUNCA_DRENO.has(n);
 export const contaNoBH = (d) => podeSerDreno(d.nome) && (typeof d.balanco === 'boolean' ? d.balanco : DRENO_PADRAO.has(d.nome));
