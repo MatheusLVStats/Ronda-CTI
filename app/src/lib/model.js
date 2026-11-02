@@ -98,8 +98,8 @@ export function normalizePatient(p, hoje = todayISO()) {
 
 export function defaultSettings() {
   return {
-    unidade: 'CTI',
-    leitos: Array.from({ length: 10 }, (_, i) => ({ id: `b${i + 1}`, label: String(i + 1).padStart(2, '0') })),
+    unidade: 'CTI 1 - Posto 2',
+    leitos: Array.from({ length: 10 }, (_, i) => ({ id: `b${i + 1}`, label: String(i + 6).padStart(2, '0') })),
     drugConc: {},
   };
 }

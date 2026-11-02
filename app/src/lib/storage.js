@@ -24,6 +24,11 @@ export function normalizeState(s) {
   if (!s || typeof s !== 'object') return base;
   const settings = { ...defaultSettings(), ...(s.settings || {}) };
   if (!Array.isArray(settings.leitos) || !settings.leitos.length) settings.leitos = defaultSettings().leitos;
+  // Configuração de fábrica antiga (CTI, leitos 01 a 10) passa a ser CTI 1 - Posto 2, leitos 06 a 15.
+  // Os leitos mantêm o id interno, então nada do que foi lançado se perde.
+  const antigo = settings.unidade === 'CTI' && settings.leitos.length === 10
+    && settings.leitos.every((l, i) => l.id === `b${i + 1}` && l.label === String(i + 1).padStart(2, '0'));
+  if (antigo) { const d = defaultSettings(); settings.unidade = d.unidade; settings.leitos = d.leitos; }
   const beds = {};
   for (const l of settings.leitos) {
     const b = (s.beds || {})[l.id];

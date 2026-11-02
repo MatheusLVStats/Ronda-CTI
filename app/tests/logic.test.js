@@ -301,3 +301,18 @@ describe('criptografia de ponta a ponta', () => {
     await expect(decryptDoc(other.encKey, 'bed:b4', c)).rejects.toBeTruthy();
   });
 });
+
+import { normalizeState as _norm } from '../src/lib/storage.js';
+describe('configuração CTI 1 - Posto 2', () => {
+  it('padrão antigo (CTI, 01 a 10) vira leitos 06 a 15 sem perder paciente', () => {
+    const leitos = Array.from({ length: 10 }, (_, i) => ({ id: `b${i + 1}`, label: String(i + 1).padStart(2, '0') }));
+    const s = _norm({ settings: { unidade: 'CTI', leitos }, beds: { b1: { patient: { plano: 'x' }, updatedAt: 1 } } });
+    expect(s.settings.unidade).toBe('CTI 1 - Posto 2');
+    expect(s.settings.leitos.map((l) => l.label)).toEqual(['06', '07', '08', '09', '10', '11', '12', '13', '14', '15']);
+    expect(s.beds.b1.patient.plano).toBe('x');
+  });
+  it('configuração editada pelo usuário fica como está', () => {
+    const s = _norm({ settings: { unidade: 'CTI 2', leitos: [{ id: 'b1', label: '01' }] }, beds: {} });
+    expect(s.settings.unidade).toBe('CTI 2');
+  });
+});
