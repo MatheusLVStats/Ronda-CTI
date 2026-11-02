@@ -40,7 +40,7 @@ export function fichaLeito(p, { hoje, leito, drugConc }) {
     { t: 'Imagem e outros exames', items: exameLines(p) },
     { t: 'Nutrição e TGI', items: nutricaoLines(p) },
     { t: 'Pele', items: lines(p.pele) },
-    { t: 'Plano', items: lines(p.plano), sempre: true, vazias: lines(p.plano).length ? 1 : 3 },
+    { t: 'Plano', items: lines(p.plano), sempre: true, vazias: lines(p.plano).length ? 0 : 3 },
     { t: 'Pendências', pendencias: pendenciaLines(p), sempre: true },
     { t: 'Anotações do plantão', anotacoes: true, sempre: true },
   ].filter((s) => s.sempre || s.checklist || (s.items && s.items.length));

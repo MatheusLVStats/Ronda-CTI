@@ -401,7 +401,8 @@ export default function App() {
       {modal && <TextModal title={modal.title} text={modal.text} onClose={() => setModal(null)} />}
       {toastMsg && <div className="toast">{toastMsg}</div>}
       {printDlg && (
-        <PrintDialog ocupados={ocupados.map((l) => ({ id: l.id, label: l.label }))} inicial={printDlg.inicial}
+        <PrintDialog ocupados={ocupados.map((l) => { const pt = state.beds[l.id].patient; const d = (pt.diagnosticos || []).find((x) => x.texto); return { id: l.id, label: l.label, plano: pt.plano || '', dx: d ? d.texto.slice(0, 40) : '' }; })}
+          inicial={printDlg.inicial} onPlano={(id, v) => changeBed(id, (pt) => ({ ...pt, plano: v }))}
           onClose={() => setPrintDlg(null)}
           onPrint={(ids, porFolha) => { setPrintDlg(null); setPrintJob({ ids, porFolha, n: Date.now() }); }} />
       )}

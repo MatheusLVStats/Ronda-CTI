@@ -2,10 +2,10 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fichaLeito, cabecalho, folhas } from '../lib/print.js';
 import { AUTORIA } from '../config.js';
-import { Modal, Icon } from './ui.jsx';
+import { Modal, Icon, Area } from './ui.jsx';
 
 // Janela "Imprimir round": quais leitos e quantos por folha.
-export function PrintDialog({ ocupados, inicial, onPrint, onClose }) {
+export function PrintDialog({ ocupados, inicial, onPrint, onPlano, onClose }) {
   const [sel, setSel] = useState(() => new Set(inicial && inicial.length ? inicial : ocupados.map((o) => o.id)));
   const [porFolha, setPorFolha] = useState(1);
   const escolhidos = ocupados.filter((o) => sel.has(o.id));
@@ -21,6 +21,16 @@ export function PrintDialog({ ocupados, inicial, onPrint, onClose }) {
         ))}
       </div>
       <button className="btn sm" style={{ marginBottom: 14 }} onClick={() => setSel(new Set(todos ? [] : ocupados.map((o) => o.id)))}>{todos ? 'Desmarcar todos' : `Todos os ocupados (${ocupados.length})`}</button>
+
+      {escolhidos.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div className="lbl">Plano do dia (sai impresso)</div>
+          {escolhidos.map((o) => (
+            <Area key={o.id} label={`Leito ${o.label}${o.dx ? ' - ' + o.dx : ''}`} value={o.plano} rows={3}
+              onChange={(v) => onPlano(o.id, v)} placeholder="Um item por linha. Fica salvo no leito." />
+          ))}
+        </div>
+      )}
 
       <div className="lbl">Por folha</div>
       <div className="seg" style={{ marginBottom: 6 }}>
