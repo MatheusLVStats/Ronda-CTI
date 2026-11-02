@@ -12,6 +12,7 @@ import Calc from './components/Calc.jsx';
 import Settings from './components/Settings.jsx';
 import Login from './components/Login.jsx';
 import { Icon, TextModal } from './components/ui.jsx';
+import { PrintDialog, PrintSheets } from './components/PrintRound.jsx';
 
 const metaVersion = typeof document !== 'undefined' ? document.querySelector('meta[name="app-version"]') : null;
 const VERSION = metaVersion && !metaVersion.content.includes('__') ? metaVersion.content : 'dev';
@@ -94,6 +95,8 @@ export default function App() {
   const [view, setView] = useState({ name: 'map', bedId: null });
   const [hoje, setHoje] = useState(todayISO());
   const [modal, setModal] = useState(null);
+  const [printDlg, setPrintDlg] = useState(null);
+  const [printJob, setPrintJob] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [sync, setSync] = useState({ state: 'idle', detail: '' });
   const [busy, setBusy] = useState(false);
@@ -362,6 +365,7 @@ export default function App() {
           onPassagem={() => setModal({ title: 'Passagem de plantão', text: buildPassagem(leitos.map((l) => ({ leito: l.label, patient: state.beds[l.id] && state.beds[l.id].patient })), { hoje, unidade: state.settings.unidade, drugConc: state.settings.drugConc }) })}
           localOnly={mode === 'local'}
           onSetupSync={() => setMode('login')}
+          onPrint={() => setPrintDlg({ inicial: [] })}
         />
       )}
 
@@ -376,6 +380,7 @@ export default function App() {
           onChange={(fn) => changeBed(bedId, (p) => fn(p))}
           onRollover={() => iniciarRound([bedId])}
           onToast={toast}
+          onPrint={() => setPrintDlg({ inicial: [bedId] })}
           onSaida={(tipo) => saida(bedId, tipo)}
           onEvolucao={() => setModal({ title: `Evolução - leito ${leitoLabel(bedId)}`, text: buildEvolucao(bed.patient, { hoje, unidade: state.settings.unidade, leito: leitoLabel(bedId), drugConc: state.settings.drugConc }) })}
         />
@@ -395,6 +400,17 @@ export default function App() {
       <div className="footer">{AUTORIA}</div>
       {modal && <TextModal title={modal.title} text={modal.text} onClose={() => setModal(null)} />}
       {toastMsg && <div className="toast">{toastMsg}</div>}
+      {printDlg && (
+        <PrintDialog ocupados={ocupados.map((l) => ({ id: l.id, label: l.label }))} inicial={printDlg.inicial}
+          onClose={() => setPrintDlg(null)}
+          onPrint={(ids, porFolha) => { setPrintDlg(null); setPrintJob({ ids, porFolha, n: Date.now() }); }} />
+      )}
+      {printJob && (
+        <PrintSheets key={printJob.n} job={printJob}
+          beds={leitos.map((l) => ({ id: l.id, label: l.label, patient: state.beds[l.id] && state.beds[l.id].patient }))}
+          ctx={{ hoje, unidade: state.settings.unidade, drugConc: state.settings.drugConc }}
+          onDone={() => setPrintJob(null)} />
+      )}
     </div>
   );
 }

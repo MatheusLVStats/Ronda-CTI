@@ -234,3 +234,42 @@ label, .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--mu
   .topbar, .bedtabs, .acts, .btn, .icon-btn, .footer { display: none !important; }
   body { background: #fff; }
 }
+
+/* ---------- Round impresso (A4, preto e branco) ---------- */
+.chipbtn { min-width: 46px; min-height: 38px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line-2); background: #fff; color: var(--muted); font-weight: 600; font-size: 14px; }
+.chipbtn.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.print-root { position: fixed; left: -12000px; top: 0; color: #000; background: #fff; font-family: 'IBM Plex Sans', Arial, sans-serif; }
+.psheet { box-sizing: border-box; overflow: hidden; background: #fff; display: flex; flex-direction: column; break-after: page; page-break-after: always; }
+.psheet:last-child { break-after: auto; page-break-after: auto; }
+.land .psheet { width: 297mm; height: 209mm; padding: 7mm 8mm; }
+.port .psheet { width: 210mm; height: 296mm; padding: 7mm 8mm; gap: 6mm; }
+.port .pbed { height: calc((296mm - 14mm - 6mm) / 2); flex: none; }
+.port .pbed + .pbed { border-top: 1px dashed #000; padding-top: 4mm; }
+.pbed { flex: 1; min-height: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.ptop { display: flex; justify-content: space-between; gap: 8mm; font-size: .8em; border-bottom: 1px solid #000; padding-bottom: 1.2mm; margin-bottom: 2mm; }
+.pid { display: flex; gap: 3mm; align-items: stretch; margin-bottom: 2.5mm; }
+.pleito { border: 2px solid #000; border-radius: 2mm; padding: 1mm 3mm; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+.pleito small { font-size: .65em; letter-spacing: .1em; font-weight: 600; }
+.pleito b { font-size: 2.1em; line-height: 1; }
+.pidt { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1mm; }
+.pnome { display: flex; align-items: flex-end; gap: 2mm; font-weight: 600; }
+.pnome .pline { flex: 1; margin: 0; }
+.palerts { display: flex; flex-direction: column; gap: 1mm; max-width: 45%; justify-content: center; }
+.pal { border: 1.5px solid #000; padding: .6mm 2mm; font-weight: 700; font-size: .9em; }
+.pal.crit { background: #000; color: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pcols { flex: 1; min-height: 0; column-count: 3; column-gap: 5mm; column-fill: auto; overflow: hidden; }
+.port .pcols { column-count: 3; column-gap: 4mm; }
+.psec { break-inside: avoid; page-break-inside: avoid; margin-bottom: 2mm; }
+.psec h4 { margin: 0 0 .6mm; font-size: .82em; text-transform: uppercase; letter-spacing: .04em; border-bottom: .5px solid #000; padding-bottom: .3mm; }
+.psec p { margin: 0 0 .3mm; }
+.psec p.mk { font-weight: 700; }
+.pcheck div, .ppend { display: flex; align-items: baseline; gap: 1.5mm; margin-bottom: .4mm; }
+.pbox { display: inline-flex; align-items: center; justify-content: center; flex: none; width: .95em; height: .95em; border: 1px solid #000; font-size: .9em; line-height: 1; font-weight: 700; }
+.pline { display: block; border-bottom: .5px solid #000; height: 1.35em; }
+.ppend .pline { height: 1em; }
+.pfoot { font-size: .65em; text-align: right; margin-top: 1mm; }
+@media print {
+  html, body { background: #fff !important; margin: 0 !important; }
+  #root { display: none !important; }
+  .print-root { position: static; left: auto; }
+}

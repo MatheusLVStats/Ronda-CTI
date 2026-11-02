@@ -141,7 +141,7 @@ function SaidaModal({ leito, onConfirm, onClose }) {
   );
 }
 
-export default function BedView({ leito, patient: p, hoje, drugConc, onChange, onSaida, onEvolucao, onRollover, onToast, tabs }) {
+export default function BedView({ leito, patient: p, hoje, drugConc, onChange, onSaida, onEvolucao, onRollover, onToast, onPrint, tabs }) {
   const [open, setOpen] = useState(() => new Set(abertasPara(p)));
   const [completa, setCompleta] = useState(false);
   const [addDev, setAddDev] = useState(false);
@@ -193,6 +193,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
               <button className={completa ? 'on' : ''} onClick={() => setCompleta(true)}>Completa</button>
             </div>
             <button className="btn primary" onClick={onEvolucao}><Icon name="copy" /> Copiar evolução</button>
+            <button className="btn" onClick={onPrint}><Icon name="print" /> Imprimir</button>
             <button className="btn" onClick={() => setImportar({ tipo: '' })}><Icon name="file" /> Importar PDF</button>
             <button className="btn danger" onClick={() => setSaida(true)}><Icon name="exit" /> Saída do CTI</button>
           </div>

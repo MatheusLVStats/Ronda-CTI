@@ -34,7 +34,7 @@ export function bedFacts(p, hoje) {
   };
 }
 
-export default function BedMap({ state, hoje, onOpen, onAdmit, onRollover, onPassagem, staleCount, roundDates, localOnly, onSetupSync }) {
+export default function BedMap({ state, hoje, onOpen, onAdmit, onRollover, onPassagem, onPrint, staleCount, roundDates, localOnly, onSetupSync }) {
   const leitos = state.settings.leitos;
   const occ = leitos.filter((l) => state.beds[l.id] && state.beds[l.id].patient);
   const facts = Object.fromEntries(occ.map((l) => [l.id, bedFacts(state.beds[l.id].patient, hoje)]));
@@ -113,7 +113,10 @@ export default function BedMap({ state, hoje, onOpen, onAdmit, onRollover, onPas
 
       {occ.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <button className="btn primary block" onClick={onPassagem}><Icon name="clip" /> Passagem de plantão (copiar texto)</button>
+          <div className="row c2">
+            <button className="btn primary block" onClick={onPassagem}><Icon name="clip" /> Passagem de plantão (copiar texto)</button>
+            <button className="btn block" onClick={onPrint}><Icon name="print" /> Imprimir round</button>
+          </div>
         </div>
       )}
     </div>
