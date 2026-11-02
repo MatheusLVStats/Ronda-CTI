@@ -277,6 +277,7 @@ export default function BedView({ leito, patient: p, hoje, drugConc, onChange, o
             ))}
             <button className="btn ghost sm" onClick={() => listAdd('diagnosticos', { texto: '', data: '', cirurgia: false })}><Icon name="plus" /> Diagnóstico</button>
             <div className="row" style={{ marginTop: 12 }}>
+              <Area label="HDA (história da doença atual)" value={p.hda} onChange={(v) => setP({ hda: v })} rows={4} placeholder="Ex.: queda de altura, Glasgow 4 na origem, IOT, TC com HSDA..." />
               <Area label="Comorbidades (uma por linha)" value={p.comorbidades} onChange={(v) => setP({ comorbidades: v })} rows={2} />
               <Area label="Medicações de uso contínuo (uma por linha, com mantida/suspensa)" value={p.medicacoes} onChange={(v) => setP({ medicacoes: v })} rows={2} />
             </div>

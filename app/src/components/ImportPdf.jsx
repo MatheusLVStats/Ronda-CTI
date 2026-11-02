@@ -33,6 +33,7 @@ function prepare(r, p, hoje) {
     culturas: mk(r.culturas, (c) => p.culturas.some((x) => lower(x.material) === lower(c.material) && x.data === c.data)),
     exames: mk(r.exames, (e) => p.exames.some((x) => lower(x.exame) === lower(e.exame) && x.data === e.data)),
     vent: r.vent ? { ...r.vent, on: !has(p.vent.modo) } : null,
+    hda: r.hda ? { t: r.hda, on: !has(p.hda) || !String(p.hda).includes(r.hda) } : null,
     infusoes: mk(r.infusoes || [], (i) => p.infusoes.some((x) => (i.drugId ? x.drugId === i.drugId : lower(x.nome) === lower(i.nome)))),
   };
 }
@@ -104,6 +105,13 @@ function ReviewEvolucao({ s, setS, upd, patient }) {
           </Row>
         ))}
       </Group>
+      {s.hda && (
+        <Group title="HDA" n={1}>
+          <Row on={s.hda.on} onToggle={(v) => setS((c) => ({ ...c, hda: { ...c.hda, on: v } }))} note={has(patient.hda) ? 'O leito já tem HDA: marcar acrescenta este texto.' : undefined}>
+            <textarea rows={Math.min(10, Math.max(3, Math.ceil(s.hda.t.length / 38)))} value={s.hda.t} onChange={(e) => setS((c) => ({ ...c, hda: { ...c.hda, t: e.target.value } }))} aria-label="HDA" />
+          </Row>
+        </Group>
+      )}
       {[['comorbidades', 'Comorbidades'], ['medicacoes', 'Medicações de uso contínuo'], ['alergias', 'Alergias']].map(([g, title]) => (
         <Group key={g} title={title} n={s[g].length}>
           {s[g].map((x, i) => (
@@ -233,7 +241,7 @@ function ReviewImagem({ s, upd }) {
 const contar = (tipo, s) => {
   if (tipo === 'lab') return s.itens.length + s.outros.length;
   if (tipo === 'imagem') return s.laudos.length;
-  return s.ids.length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames', 'infusoes'].reduce((a, k) => a + s[k].length, 0) + (s.vent ? 1 : 0);
+  return s.ids.length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames', 'infusoes'].reduce((a, k) => a + s[k].length, 0) + (s.vent ? 1 : 0) + (s.hda ? 1 : 0);
 };
 
 // Botão que abre o seletor de arquivo direto (um toque), também no Safari do iPhone.
@@ -320,9 +328,10 @@ export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, fil
         culturas: on(s.culturas),
         exames: on(s.exames),
         infusoes: on(s.infusoes),
+        hda: s.hda && s.hda.on ? s.hda.t : '',
         vent: s.vent && s.vent.on ? (({ on: _o, ...v }) => v)(s.vent) : null,
       };
-      total = Object.keys(paciente).length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames', 'infusoes'].reduce((a, k) => a + sel[k].length, 0) + (sel.vent ? 1 : 0);
+      total = Object.keys(paciente).length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames', 'infusoes'].reduce((a, k) => a + sel[k].length, 0) + (sel.vent ? 1 : 0) + (sel.hda ? 1 : 0);
     }
     setTexto('');
     setS(null);

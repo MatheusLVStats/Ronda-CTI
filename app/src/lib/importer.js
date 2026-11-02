@@ -34,6 +34,7 @@ const HEADINGS = [
   ['meds', /^(medicac(oes|ao)( de)?( uso)? (continuo|domiciliar(es)?|previas?)|uso continuo|medicamentos de uso continuo|mud|muc)\b/],
   ['inf', /^(infusoes|infusao|drogas vasoativas|dvas?|bombas( de infusao)?|sedoanalgesia)\b/],
   ['alergia', /^alergias?\b/],
+  ['hda', /^(hda|historia da doenca atual)\b/],
   ['atb', /^(atb|antibioticos?|antibioticoterapia|antimicrobianos?)\b/],
   ['culturas', /^(culturas?|microbiologia)\b/],
   ['disp', /^(dispositivos?( invasivos)?|invasoes|invasivos|acessos?( venosos)?)\b/],
@@ -309,6 +310,7 @@ export function parseEvolucao(text, hoje) {
     exames: datedItems(sec.exames || [], hoje, 'exame'),
     vent: ventFrom((sec.vent || []).join('\n')),
     infusoes: infusoesFrom(sec.inf || []),
+    hda: (sec.hda || []).join(' ').replace(/\s+/g, ' ').trim(),
   };
 }
 
@@ -335,6 +337,7 @@ export function applyImport(p, sel) {
   if (sel.atbs) n.atbs = [...p.atbs, ...sel.atbs.map(strip2)];
   if (sel.culturas) n.culturas = [...p.culturas, ...sel.culturas];
   if (sel.exames) n.exames = [...p.exames, ...sel.exames];
+  if (has(sel.hda)) n.hda = has(p.hda) && !String(p.hda).includes(sel.hda) ? `${p.hda.trim()}\n${sel.hda}` : sel.hda;
   if (sel.infusoes) n.infusoes = [...p.infusoes, ...sel.infusoes.map(strip2)];
   if (sel.vent) n.vent = { ...p.vent, ...Object.fromEntries(Object.entries(sel.vent).filter(([, v]) => has(v))) };
   return n;

@@ -179,4 +179,9 @@ describe('evolução do sistema do hospital', () => {
     expect(r.infusoes.map((i) => [i.drugId || i.nome, i.vazao])).toEqual([['fenta', '0,5'], ['RL', '21']]);
     expect(r.vent).toMatchObject({ modo: 'PSV', psup: '11', peep: '6', fio2: '30' });
   });
+  it('HDA', () => {
+    expect(r.hda).toBe('queda de altura, submetido a IOT em unidade de origem.');
+    const n = applyImport(newPatient(HOJE), { hda: r.hda });
+    expect(n.hda).toBe(r.hda);
+  });
 });

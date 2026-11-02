@@ -26,6 +26,7 @@ export function fichaLeito(p, { hoje, leito, drugConc }) {
   const secoes = [
     { t: 'Checklist da ronda', checklist: CHECK_DEFS.map((c) => ({ t: c.s, v: p.check[c.k] || '', txt: CHECK_TXT[p.check[c.k]] || '', nota: (p.checkNote[c.k] || '').trim() })) },
     { t: 'Diagnósticos', items: diag },
+    { t: 'HDA', items: lines(p.hda) },
     { t: 'Dispositivos', items: p.dispositivos.map((d) => deviceLine(d, hoje)), alerta: (l) => / - rever$/.test(l) },
     { t: 'Infusões', items: p.infusoes.map((i) => infusionLine(i, p.peso, drugConc)).filter(Boolean) },
     { t: 'Ventilação', items: ventLines(p, hoje) },

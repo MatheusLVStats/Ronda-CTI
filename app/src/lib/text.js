@@ -257,6 +257,7 @@ export function buildEvolucao(p, ctx) {
   const out = [
     ...head,
     ...section('DIAGNÓSTICOS', diagLines(p, hoje)),
+    ...section('HDA', lines(p.hda)),
     ...section('COMORBIDADES', lines(p.comorbidades)),
     ...section('MEDICAÇÕES DE USO CONTÍNUO', lines(p.medicacoes)),
     ...section('ALERGIAS', lines(p.alergias)),

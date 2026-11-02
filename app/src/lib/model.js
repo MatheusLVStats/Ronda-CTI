@@ -51,7 +51,7 @@ export function newPatient(hoje = todayISO()) {
     internacao: '', admissao: hoje,
     idade: '', sexo: '', peso: '', origem: '',
     diagnosticos: [],
-    comorbidades: '', medicacoes: '', alergias: '', isolamento: '',
+    hda: '', comorbidades: '', medicacoes: '', alergias: '', isolamento: '',
     neuro: { escala: '', valor: '', pupilas: '', picMin: '', picMax: '', obs: '' },
     dispositivos: [],
     atbs: [],
