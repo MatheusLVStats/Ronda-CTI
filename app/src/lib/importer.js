@@ -5,7 +5,7 @@ import { uid } from './model.js';
 import { has } from './format.js';
 
 export const strip = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-export const clean = (s) => String(s || '').replace(/^[\s\-•*·>]+/, '').replace(/^\d{1,2}[.)]\s+/, '').replace(/\s+/g, ' ').trim();
+export const clean = (s) => String(s || '').replace(/^[\s\-•*·>#]+/, '').replace(/\s*#+\s*$/, '').replace(/^\d{1,2}[.)]\s+/, '').replace(/\s+/g, ' ').trim();
 
 // ---------- datas ----------
 const DATE_RE = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/;
@@ -31,14 +31,15 @@ function dFromNumber(text, hoje) {
 const HEADINGS = [
   ['diag', /^(hd|hds|hipoteses? diagnosticas?|diagnosticos?( principais?| atuais| secundarios)?|impressao diagnostica|problemas( ativos)?|lista de problemas)\b/],
   ['comorb', /^(comorbidades?|hpp|antecedentes( pessoais)?( patologicos)?|historia patologica pregressa|doencas previas)\b/],
-  ['meds', /^(medicac(oes|ao)( de)?( uso)? (continuo|domiciliar(es)?|previas?)|uso continuo|medicamentos de uso continuo|mud)\b/],
+  ['meds', /^(medicac(oes|ao)( de)?( uso)? (continuo|domiciliar(es)?|previas?)|uso continuo|medicamentos de uso continuo|mud|muc)\b/],
+  ['inf', /^(infusoes|infusao|drogas vasoativas|dvas?|bombas( de infusao)?|sedoanalgesia)\b/],
   ['alergia', /^alergias?\b/],
   ['atb', /^(atb|antibioticos?|antibioticoterapia|antimicrobianos?)\b/],
   ['culturas', /^(culturas?|microbiologia)\b/],
-  ['disp', /^(dispositivos?( invasivos)?|invasoes|acessos?( venosos)?)\b/],
+  ['disp', /^(dispositivos?( invasivos)?|invasoes|invasivos|acessos?( venosos)?)\b/],
   ['exames', /^(exames( complementares| de imagem| laboratoriais)?|imagem|laboratorio|labs?|resultados)\b/],
   ['vent', /^(suporte ventilatorio|ventilacao( mecanica)?|vm|parametros( ventilatorios| da vm)?)\b/],
-  ['ignore', /^(hda|historia( da doenca atual)?|resumo|exame fisico|ef|conduta|condutas|plano|evolucao|subjetivo|objetivo|avaliacao|prescricao|sinais vitais|ssvv|neurologico|neuro|cardiovascular|cardio|hemodinamico|hemodinamica|renal|tgi|gastrointestinal|metabolico|infeccioso|infeccao|hematologico|pele|respiratorio|identificacao|dados do paciente|assinatura)\b/],
+  ['ignore', /^(hda|historia( da doenca atual)?|resumo|exame fisico|ao exame|ef|conduta|condutas|plano|ultimas 24 ?h(oras)?|24 ?h|evolucao|subjetivo|objetivo|avaliacao|prescricao|sinais vitais|ssvv|neurologico|neuro|cardiovascular|cardio|hemodinamico|hemodinamica|renal|tgi|gastrointestinal|metabolico|infeccioso|infeccao|hematologico|pele|respiratorio|identificacao|dados do paciente|assinatura)\b/],
 ];
 
 function headingOf(line) {
@@ -51,46 +52,87 @@ function headingOf(line) {
     const rest = raw.slice(m[0].length).replace(/^\s*[:\-–]\s*/, '').trim();
     // Título de verdade: termina em ":" ou ocupa a linha toda (curto) - evita frases comuns.
     const afterTitle = n.slice(m[0].length);
-    if (/^\s*[:\-–]/.test(afterTitle) || afterTitle.trim() === '' || (raw === raw.toUpperCase() && raw.length < 50)) {
+    if (/^\s*[:\-–]/.test(afterTitle) || afterTitle.trim() === '' || (raw === raw.toUpperCase() && raw.length < 50 && /^\s/.test(afterTitle))) {
       return { key, rest };
     }
   }
   return null;
 }
 
+// Linha de formulário do sistema ("AVC: NÃO  SEPSE: NÃO"): não é conteúdo.
+const FORM_RE = /^(\s*[^:\t]{2,40}:\s*(sim|n[aã]o)\s*)+$/i;
+
 export function splitSections(text) {
   const sections = {};
   let cur = null;
+  // Evoluções no estilo "#TCE GRAVE": as linhas com # antes do primeiro título são os diagnósticos.
+  let hashDiag = 'antes';
+  const implicitos = [];
   for (const line of String(text || '').split('\n')) {
+    if (FORM_RE.test(line.replace(/\t/g, '  '))) { cur = null; continue; }
     const h = headingOf(line);
+    const comHash = /^\s*#/.test(line);
     if (h) {
+      if (comHash && hashDiag === 'coletando') hashDiag = 'fim';
       cur = h.key;
       sections[cur] = sections[cur] || [];
       if (h.rest) sections[cur].push(h.rest);
       continue;
     }
     const t = clean(line);
+    if (comHash && t && hashDiag !== 'fim') {
+      const n = strip(t);
+      if (!/^(evolucao|ih\b|admiss|interna|data\b|leito\b|posto\b)/.test(n) && t.length < 120) { hashDiag = 'coletando'; implicitos.push(t); continue; }
+      if (hashDiag === 'coletando' || /^(ih\b|admiss)/.test(n)) { hashDiag = hashDiag === 'antes' ? 'antes' : hashDiag; continue; }
+    }
     if (cur && t) sections[cur].push(t);
   }
+  if (!sections.diag && implicitos.length) sections.diag = implicitos;
   delete sections.ignore;
   return sections;
+}
+
+// Tabelas do sistema: linha de títulos com TAB ("Nome  Boletim  Data/Hora Entrada") e a linha de valores logo abaixo.
+export function tabela(text) {
+  const ls = String(text || '').split('\n');
+  const out = {};
+  ls.forEach((l, i) => {
+    if (!l.includes('\t')) return;
+    const hs = l.split('\t').map((h) => strip(clean(h)));
+    if (!hs.some((h) => /^(nome|idade|sexo|data (de )?internacao|data de nascimento)$/.test(h))) return;
+    for (let j = i + 1; j <= i + 3 && j < ls.length; j++) {
+      const vs = ls[j].split('\t');
+      if (vs.length === hs.length) { hs.forEach((h, k) => { if (!(h in out)) out[h] = clean(vs[k]); }); break; }
+    }
+  });
+  return out;
 }
 
 // ---------- identificação ----------
 export function header(text, hoje) {
   const t = String(text || '');
+  const tab = tabela(t);
   const out = {};
-  const nome = t.match(/(?:paciente|nome(?: do paciente)?)\s*:\s*([A-Za-zÀ-ÿ'.\- ]{4,70})/i);
+  const nome = t.match(/(?:paciente|nome(?: do paciente)?|sr\.?\s*\(a\)|sra?\.)\s*:\s*([A-Za-zÀ-ÿ'.\- ]{4,70})/i);
   if (nome) out.nome = nome[1].replace(/\s+(idade|sexo|prontu[aá]rio|registro|data|leito|dn|nasc).*$/i, '').trim();
-  const idade = t.match(/idade\s*:?\s*(\d{1,3})/i) || t.match(/\b(\d{1,3})\s*anos\b/i);
+  else if (tab.nome && /^[A-Za-zÀ-ÿ'.\- ]{4,70}$/.test(tab.nome)) out.nome = tab.nome;
+  const idade = t.match(/idade\s*:?[ \t]*(\d{1,3})/i) || t.match(/\b(\d{1,3})\s*anos\b/i) || (tab.idade && tab.idade.match(/^(\d{1,3})/));
   if (idade && Number(idade[1]) < 120) out.idade = idade[1];
-  const sexo = t.match(/sexo\s*:?\s*(masculino|feminino|masc|fem|m|f)\b/i);
+  const sexo = t.match(/sexo\s*:?[ ]*(masculino|feminino|masc|fem|m|f)\b/i) || (tab.sexo && tab.sexo.match(/^(masculino|feminino|m|f)\b/i));
   if (sexo) out.sexo = /^m/i.test(sexo[1]) ? 'M' : 'F';
   const peso = t.match(/peso\s*:?\s*(\d{2,3}(?:[.,]\d)?)\s*kg/i);
   if (peso) out.peso = peso[1].replace('.', ',');
   const intern = t.match(/(?:data\s+d[ae]\s+interna[cç][aã]o|internad[oa]\s+em|interna[cç][aã]o(?:\s+hospitalar)?|admiss[aã]o\s+hospitalar|data\s+de\s+admiss[aã]o)\s*:?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
   if (intern) out.internacao = findDate(intern[1], hoje);
-  const origem = t.match(/(?:setor(?: de origem)?|proced[eê]ncia|procedente d[eao]|unidade de origem)\s*:?\s*([^\n]{2,40})/i);
+  else {
+    const ih = t.match(/(?:^|\n)[#\s]*ih\s*:?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
+    const ti = tab['data internacao'] || tab['data de internacao'];
+    if (ih) out.internacao = findDate(ih[1], hoje);
+    else if (ti) out.internacao = findDate(ti, hoje);
+  }
+  const adm = t.match(/admiss[aã]o\s+(?:n[oa]\s+)?(?:cti|uti)\s*(?:\d\b\s*)?:?\s*(?:em\s+)?(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/i);
+  if (adm) out.admissao = findDate(adm[1], hoje);
+  const origem = t.match(/(?:setor(?: de origem)?|proced[eê]ncia|procedente d[eao]|unidade de origem)\s*:\s*([A-Za-zÀ-ÿ][^\n\t]{1,39})/i);
   if (origem) out.origem = origem[1].replace(/\s+(leito|data|idade).*$/i, '').trim();
   return out;
 }
@@ -107,7 +149,7 @@ const DEVICE_RULES = [
   ['Cateter de PIC', /\b(cateter|monitor(izacao)?) de pic\b/],
   ['SVD', /\b(svd|cvd|sonda vesical|cateter vesical)\b/],
   ['SNG em sifonagem', /\b(sng|sonda nasogastrica)\b.*\b(sifonagem|aberta|drenagem)\b/],
-  ['SNE/SNG', /\b(sne|sng|sonda nasoenteral|sonda nasogastrica)\b/],
+  ['SNE/SNG', /\b(sne|sng|cne|cng|sonda nasoenteral|sonda nasogastrica|cateter naso(enteral|gastrico))\b/],
   ['Hemovac', /\bhemovac\b/],
   ['Dreno torácico', /\bdreno( de)? torax|dreno toracico|drenagem pleural\b/],
   ['Dreno de cavidade', /\bdreno( de)? (cavidade|abdominal|penrose|tubular|laminar)\b/],
@@ -121,7 +163,7 @@ function devicesFrom(lines, hoje, requireDate) {
   const out = [];
   for (const line of lines) {
     const n = strip(line);
-    if (/\b(retirad|sacad|removid|extubad|decanulad)/.test(n)) continue; // dispositivo que já saiu
+    if (/\b(retirad|sacad|removid|extubad|decanulad)|\bteve\b|\btroca de/.test(n)) continue; // dispositivo que já saiu ou só foi trocado
     const data = findDate(line, hoje) || dFromNumber(line, hoje);
     if (requireDate && !data) continue;
     for (const [nome, re] of DEVICE_RULES) {
@@ -141,15 +183,17 @@ const ATB = ['meropenem', 'imipenem', 'ertapenem', 'cefepime', 'ceftriaxona', 'c
   'piperacilina', 'tazocin', 'amoxicilina', 'ampicilina', 'oxacilina', 'penicilina', 'vancomicina', 'teicoplanina', 'linezolida', 'daptomicina', 'polimixina',
   'colistina', 'amicacina', 'gentamicina', 'ciprofloxacino', 'levofloxacino', 'moxifloxacino', 'azitromicina', 'claritromicina', 'clindamicina', 'metronidazol',
   'sulfametoxazol', 'bactrim', 'doxiciclina', 'tigeciclina', 'fluconazol', 'voriconazol', 'anfotericina', 'micafungina', 'caspofungina', 'anidulafungina',
-  'aciclovir', 'ganciclovir', 'oseltamivir', 'rhze', 'rifampicina'];
-const ATB_NOMES = { tazocin: 'Piperacilina-tazobactam', piperacilina: 'Piperacilina-tazobactam', bactrim: 'Sulfametoxazol-trimetoprima', sulfametoxazol: 'Sulfametoxazol-trimetoprima', 'ceftazidima-avibactam': 'Ceftazidima-avibactam', rhze: 'RHZE' };
+  'aciclovir', 'ganciclovir', 'oseltamivir', 'rhze', 'rifampicina', 'clavulin', 'clavulanato', 'claritomicina', 'unasyn', 'sulbactam', 'zinforo', 'ceftarolina', 'targocid'];
+const ATB_NOMES = { clavulin: 'Amoxicilina-clavulanato', clavulanato: 'Amoxicilina-clavulanato', claritomicina: 'Claritromicina', unasyn: 'Ampicilina-sulbactam', sulbactam: 'Ampicilina-sulbactam', zinforo: 'Ceftarolina', targocid: 'Teicoplanina', tazocin: 'Piperacilina-tazobactam', piperacilina: 'Piperacilina-tazobactam', bactrim: 'Sulfametoxazol-trimetoprima', sulfametoxazol: 'Sulfametoxazol-trimetoprima', 'ceftazidima-avibactam': 'Ceftazidima-avibactam', rhze: 'RHZE' };
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function atbsFrom(lines, hoje) {
   const out = [];
-  for (const line of lines) {
+  // "CLAVULIN INICIO 26/10 + CLARITROMICINA 27/10": cada antimicrobiano com a sua data.
+  const partes = lines.flatMap((l) => l.split(/\s\+\s|;/).map((x) => x.trim()).filter(Boolean));
+  for (const line of partes) {
     const n = strip(line);
-    if (/alerg/.test(n)) continue;
+    if (/alerg|\b(escalonar|trocar para|se necessario|caso de)\b/.test(n)) continue;
     for (const a of ATB) {
       if (!new RegExp(`\\b${a}`).test(n)) continue;
       const nome = ATB_NOMES[a] || cap(a);
@@ -187,7 +231,8 @@ function datedItems(lines, hoje, kind) {
 
 function splitList(lines, seps) {
   const out = [];
-  for (const l of lines) for (const p of l.split(seps)) { const t = clean(p); if (t && !/^nega\b/i.test(strip(t))) out.push(t); }
+  const vazio = /^(nega\b|s\.?\s*inform|sem inform|nao inform|nada consta|nenhum|desconhec|nkda|ignorad)/;
+  for (const l of lines) for (const p of l.split(seps)) { const t = clean(p); if (t && !vazio.test(strip(t))) out.push(t); }
   return [...new Set(out)];
 }
 
@@ -202,13 +247,38 @@ function ventFrom(text) {
   if (!v.modo) return null;
   const num = (re) => { const m = n.match(re); return m ? m[1].replace('.', ',') : ''; };
   v.peep = num(/\bpeep\s*:?\s*(\d{1,2})/);
-  v.fio2 = num(/\bfio2\s*:?\s*(\d{2,3})/);
+  const fi = n.match(/\bfio2\s*:?\s*(0?[.,]\d{1,2}|\d{2,3})\s*%?/);
+  if (fi) v.fio2 = /[.,]/.test(fi[1]) ? String(Math.round(parseFloat(fi[1].replace(',', '.')) * 100)) : fi[1];
+  else v.fio2 = '';
   v.fr = num(/\bfr\s*:?\s*(\d{1,2})\b/);
   v.vc = num(/\bvc\s*:?\s*(\d{3,4})/);
   v.pi = num(/\b(?:pinsp|pi|pc)\s*:?\s*(\d{1,2})\b/);
   v.psup = num(/\b(?:psup|ps)\s*:?\s*(\d{1,2})\b/);
   v.fluxo = num(/\b(\d{1,2}(?:[.,]\d)?)\s*l\s*\/?\s*min/);
+  // "PSV 11" / "PCV 16": o número logo depois do modo é a pressão.
+  if (v.modo === 'PSV' && !v.psup) v.psup = num(/\bpsv\s*:?\s*(\d{1,2})\b/);
+  if (v.modo === 'PCV' && !v.pi) v.pi = num(/\bpcv\s*:?\s*(\d{1,2})\b/);
   return v;
+}
+
+// ---------- infusões ----------
+const DROGAS = [['nora', /\bnora(drenalina|epinefrina)?\b/], ['vaso', /\bvaso(pressina)?\b/], ['dobuta', /\bdobuta(mina)?\b/], ['dopa', /\bdopa(mina)?\b/],
+  ['nipride', /\b(nipride|nitroprussiato)\b/], ['tridil', /\b(tridil|nitroglicerina)\b/], ['amio', /\bamio(darona)?\b/], ['fenta', /\bfenta(nil|nila|nyl)?\b/],
+  ['morfina', /\bmorfina\b/], ['mida', /\b(mida(zolam)?|dormonid)\b/], ['propofol', /\bpropofol\b/], ['dexme', /\b(dexme(detomidina)?|precedex)\b/],
+  ['cisa', /\b(cisa(tracurio)?|nimbex)\b/], ['rocu', /\brocu(ronio)?\b/]];
+
+export function infusoesFrom(lines) {
+  const out = [];
+  for (const line of lines) {
+    const m = line.match(/^(.+?)\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*ml\s*\/\s*h/i);
+    if (!m) continue;
+    const nomeTxt = clean(m[1]);
+    const n = strip(nomeTxt);
+    if (/\b(dieta|enteral|parenteral|npt)\b/.test(n)) continue; // dieta vai para nutrição
+    const d = DROGAS.find(([, re]) => re.test(n));
+    out.push({ id: uid(), drugId: d ? d[0] : '', outra: !d, nome: d ? '' : nomeTxt, vazao: m[2].replace('.', ','), fonte: line });
+  }
+  return out;
 }
 
 // Resultado: sugestões para a tela de conferência.
@@ -237,6 +307,7 @@ export function parseEvolucao(text, hoje) {
     culturas: datedItems(sec.culturas || [], hoje, 'cultura'),
     exames: datedItems(sec.exames || [], hoje, 'exame'),
     vent: ventFrom((sec.vent || []).join('\n')),
+    infusoes: infusoesFrom(sec.inf || []),
   };
 }
 
@@ -244,7 +315,7 @@ export function parseEvolucao(text, hoje) {
 // só mudam se o médico marcou explicitamente a substituição.
 export function applyImport(p, sel) {
   const n = { ...p };
-  for (const k of ['idade', 'sexo', 'peso', 'internacao', 'origem']) {
+  for (const k of ['idade', 'sexo', 'peso', 'internacao', 'admissao', 'origem']) {
     if (sel.paciente && has(sel.paciente[k])) n[k] = sel.paciente[k];
   }
   const addLines = (field, items) => {
@@ -263,6 +334,7 @@ export function applyImport(p, sel) {
   if (sel.atbs) n.atbs = [...p.atbs, ...sel.atbs.map(strip2)];
   if (sel.culturas) n.culturas = [...p.culturas, ...sel.culturas];
   if (sel.exames) n.exames = [...p.exames, ...sel.exames];
+  if (sel.infusoes) n.infusoes = [...p.infusoes, ...sel.infusoes.map(strip2)];
   if (sel.vent) n.vent = { ...p.vent, ...Object.fromEntries(Object.entries(sel.vent).filter(([, v]) => has(v))) };
   return n;
 }

@@ -3,18 +3,21 @@ import { parseEvolucao, header } from '../lib/importer.js';
 import { parseLab, parseLaudos, destinoTexto, situacaoLaudo } from '../lib/importLab.js';
 import { LAB_KEYS, GASO_KEYS } from '../lib/model.js';
 import { ddmm } from '../lib/dates.js';
+import { DRUGS } from '../lib/drugs.js';
 import { has } from '../lib/format.js';
 import { Modal, Icon } from './ui.jsx';
 
 const lower = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const SEXO = { M: 'masculino', F: 'feminino' };
-const ID_LABELS = { idade: 'Idade', sexo: 'Sexo', peso: 'Peso (kg)', internacao: 'Internação hospitalar', origem: 'Origem' };
+const ID_LABELS = { idade: 'Idade', sexo: 'Sexo', peso: 'Peso (kg)', internacao: 'Internação hospitalar', admissao: 'Admissão no CTI', origem: 'Origem' };
+const DATA_IDS = new Set(['internacao', 'admissao']);
+const nomeDroga = (i) => (i.drugId ? (DRUGS.find((d) => d.id === i.drugId) || {}).nome : i.nome);
 
 // Marca cada sugestão: ligada por padrão, menos o que já existe no leito.
-function prepare(r, p) {
+function prepare(r, p, hoje) {
   const ids = Object.entries(ID_LABELS)
     .filter(([k]) => has(r.paciente[k]))
-    .map(([k, label]) => ({ k, label, value: r.paciente[k], atual: p[k], on: !has(p[k]) }));
+    .map(([k, label]) => ({ k, label, value: r.paciente[k], atual: p[k], on: !has(p[k]) || (k === 'admissao' && p[k] === hoje && r.paciente[k] !== hoje) }));
   const exists = (list, key, v) => list.some((x) => lower(x[key]) === lower(v));
   const lineSet = (txt) => new Set(String(txt || '').split('\n').map(lower).filter(Boolean));
   const mk = (arr, dup) => arr.map((x) => ({ ...x, on: !dup(x), dup: dup(x) }));
@@ -30,6 +33,7 @@ function prepare(r, p) {
     culturas: mk(r.culturas, (c) => p.culturas.some((x) => lower(x.material) === lower(c.material) && x.data === c.data)),
     exames: mk(r.exames, (e) => p.exames.some((x) => lower(x.exame) === lower(e.exame) && x.data === e.data)),
     vent: r.vent ? { ...r.vent, on: !has(p.vent.modo) } : null,
+    infusoes: mk(r.infusoes || [], (i) => p.infusoes.some((x) => (i.drugId ? x.drugId === i.drugId : lower(x.nome) === lower(i.nome)))),
   };
 }
 
@@ -85,9 +89,9 @@ function ReviewEvolucao({ s, setS, upd, patient }) {
       <Group title="Identificação" n={s.ids.length}>
         {s.ids.map((x, i) => (
           <Row key={x.k} on={x.on} onToggle={(v) => upd('ids', i, { on: v })}
-            note={has(x.atual) && x.atual !== x.value ? `No leito hoje: ${x.k === 'internacao' ? ddmm(x.atual) : x.k === 'sexo' ? SEXO[x.atual] : x.atual}. Marcar substitui.` : undefined}>
+            note={has(x.atual) && x.atual !== x.value ? `No leito hoje: ${DATA_IDS.has(x.k) ? ddmm(x.atual) : x.k === 'sexo' ? SEXO[x.atual] : x.atual}. Marcar substitui.` : undefined}>
             <span>{x.label}: </span>
-            {x.k === 'internacao'
+            {DATA_IDS.has(x.k)
               ? <input type="date" value={x.value} onChange={(e) => upd('ids', i, { value: e.target.value })} style={{ maxWidth: 190 }} />
               : <b>{x.k === 'sexo' ? SEXO[x.value] : x.value}</b>}
           </Row>
@@ -128,6 +132,17 @@ function ReviewEvolucao({ s, setS, upd, patient }) {
               <span className="hint" style={{ marginTop: 0 }}>início</span>
               <input type="date" value={a.inicio} onChange={(e) => upd('atbs', i, { inicio: e.target.value })} style={{ maxWidth: 170 }} aria-label="Início" />
               {a.fim && <span className="chip">prévio, até {ddmm(a.fim)}</span>}
+            </div>
+          </Row>
+        ))}
+      </Group>
+      <Group title="Infusões" n={s.infusoes.length}>
+        {s.infusoes.map((x, i) => (
+          <Row key={x.id} on={x.on} onToggle={(v) => upd('infusoes', i, { on: v })} note={x.dup ? 'Já está no leito.' : x.outra ? 'Fora da lista de diluições: entra como "outra".' : undefined}>
+            <div className="flex">
+              <b style={{ minWidth: 0 }}>{nomeDroga(x)}</b>
+              <input value={x.vazao} inputMode="decimal" onChange={(e) => upd('infusoes', i, { vazao: e.target.value })} style={{ maxWidth: 90 }} aria-label="Vazão" />
+              <span className="hint" style={{ marginTop: 0 }}>ml/h</span>
             </div>
           </Row>
         ))}
@@ -213,7 +228,7 @@ function ReviewImagem({ s, upd }) {
 const contar = (tipo, s) => {
   if (tipo === 'lab') return s.itens.length + s.outros.length;
   if (tipo === 'imagem') return s.laudos.length;
-  return s.ids.length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames'].reduce((a, k) => a + s[k].length, 0) + (s.vent ? 1 : 0);
+  return s.ids.length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames', 'infusoes'].reduce((a, k) => a + s[k].length, 0) + (s.vent ? 1 : 0);
 };
 
 // Botão que abre o seletor de arquivo direto (um toque), também no Safari do iPhone.
@@ -248,10 +263,10 @@ export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, fil
       if (!bruto.trim()) throw new Error('vazio');
       const plano = bruto.replace(/\t/g, ' ');
       setTexto(bruto);
-      setNome(header(plano, hoje).nome || '');
+      setNome(header(bruto, hoje).nome || '');
       if (t === 'lab') setS(prepareLab(parseLab(bruto, hoje), patient));
       else if (t === 'imagem') setS(prepareLaudos(parseLaudos(plano, hoje), patient));
-      else setS(prepare(parseEvolucao(plano, hoje), patient));
+      else setS(prepare(parseEvolucao(bruto, hoje), patient, hoje));
       setStage('review');
     } catch (e) {
       console.error('Leitura do PDF:', e);
@@ -291,9 +306,10 @@ export default function ImportPdf({ leito, patient, hoje, tipo: tipoInicial, fil
         atbs: on(s.atbs),
         culturas: on(s.culturas),
         exames: on(s.exames),
+        infusoes: on(s.infusoes),
         vent: s.vent && s.vent.on ? (({ on: _o, ...v }) => v)(s.vent) : null,
       };
-      total = Object.keys(paciente).length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames'].reduce((a, k) => a + sel[k].length, 0) + (sel.vent ? 1 : 0);
+      total = Object.keys(paciente).length + ['diagnosticos', 'comorbidades', 'medicacoes', 'alergias', 'dispositivos', 'atbs', 'culturas', 'exames', 'infusoes'].reduce((a, k) => a + sel[k].length, 0) + (sel.vent ? 1 : 0);
     }
     setTexto('');
     setS(null);

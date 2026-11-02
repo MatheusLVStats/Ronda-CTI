@@ -9,7 +9,7 @@ import { addDays } from './dates.js';
 // Nome do exame no começo da linha (ou da coluna), valor logo depois. A faixa plausível evita pegar o valor de referência.
 export const LAB_DEFS = [
   { k: 'hb', alvo: 'labs', re: /^(hemoglobina|hb)\b(?!\s*(corpuscular|glicada|glicosilada|a1c|fetal|s\b))/, faixa: [2, 25] },
-  { k: 'leuc', alvo: 'labs', re: /^(leucocitos( totais)?|leucometria|global de leucocitos|globulos brancos|wbc)\b/, faixa: [50, 500000], milhar: true },
+  { k: 'leuc', alvo: 'labs', re: /^(leucocitos( totais)?|leucometria|leuco|leucos|global de leucocitos|globulos brancos|wbc)\b/, faixa: [50, 500000], milhar: true },
   { k: 'plaq', alvo: 'labs', re: /^(plaquetas|contagem de plaquetas|plaquetometria|plt)\b/, faixa: [1000, 3000000], milhar: true },
   { k: 'pcr', alvo: 'labs', re: /^(proteina c reativa|pcr)\b(?!.*(sars|covid|rt-|pcr para))/, faixa: [0, 1000] },
   { k: 'inr', alvo: 'labs', inr: true, faixa: [0.5, 20] },
@@ -21,17 +21,18 @@ export const LAB_DEFS = [
   { k: 'ph', alvo: 'gaso', re: /^ph\b/, faixa: [6.5, 8] },
   { k: 'pco2', alvo: 'gaso', re: /^(pa?co2|pa? co2|pa?co 2)\b/, faixa: [5, 160] },
   { k: 'po2', alvo: 'gaso', re: /^(pa?o2|pa? o2|pa?o 2)\b(?!\s*\/\s*fio)/, faixa: [10, 700] },
-  { k: 'hco3', alvo: 'gaso', re: /^(c?hco3|bicarbonato)\b/, faixa: [1, 60] },
+  { k: 'hco3', alvo: 'gaso', re: /^(c?hco3|bicarbonato|bic)\b/, faixa: [1, 60] },
   { k: 'be', alvo: 'gaso', re: /^(be|beecf|be ecf|beb|be b|abe|sbe|cbase|excesso de bases?|base excess)\b/, faixa: [-40, 40] },
-  { k: 'sao2', alvo: 'gaso', re: /^(so2|sao2|sato2|sat o2|o2 ?sat|saturacao( de o2| de oxigenio| de oxi-hemoglobina)?)\b/, faixa: [10, 100] },
+  { k: 'sao2', alvo: 'gaso', re: /^(so2|sao2|sato2|sat o2|o2 ?sat|sat|saturacao( de o2| de oxigenio| de oxi-hemoglobina)?)\b/, faixa: [10, 100] },
+  { k: 'pf', alvo: 'gaso', re: /^(p ?\/ ?f|relacao p ?\/ ?f|pao2 ?\/ ?fio2)(\s|:|$)/, faixa: [20, 800] },
   { k: 'lac', alvo: 'gaso', re: /^(lactato|c?lac|acido latico)\b/, faixa: [0, 40] },
 ];
 
 const OUTROS_DEFS = [
-  ['Ht', /^(hematocrito|ht)\b/], ['Glicose', /^(glicose|glicemia)\b(?!.*capilar)/],
+  ['Ht', /^(hematocrito|ht)\b/], ['Glicose', /^(glicose|glicemia|glic)\b(?!.*capilar)/],
   ['Ca iônico', /^(calcio ionico|calcio ionizado|cai)\b/], ['Ca', /^calcio(?! ion)( total)?\b/], ['Cl', /^(cloro|cloreto)\b/], ['P', /^(fosforo|fosfato)\b/],
   ['TGO', /^(tgo|ast|aspartato aminotransferase)\b/], ['TGP', /^(tgp|alt|alanina aminotransferase)\b/],
-  ['BT', /^(bilirrubina total|bt)\b/], ['BD', /^bilirrubina direta\b/], ['Albumina', /^albumina\b/],
+  ['BT', /^bilirrubina total\b/], ['BD', /^bilirrubina direta\b/], ['Albumina', /^albumina\b/],
   ['TTPA', /^(ttpa|tempo de tromboplastina parcial ativad[ao])\b/], ['Fibrinogênio', /^fibrinogenio\b/],
   ['Troponina', /^troponina\b/], ['Procalcitonina', /^procalcitonina\b/], ['CK', /^(cpk|ck|creatinoquinase|creatina quinase)\b(?!\s*-?\s*mb)/],
   ['Amilase', /^amilase\b/], ['Lipase', /^lipase\b/], ['DHL', /^(dhl|ldh|desidrogenase latica)\b/],
@@ -46,7 +47,7 @@ const NUM_INICIO = new RegExp('^(?:resultado\\s*:?\\s*)?[<>]?\\s*' + NUM);
 const INR_RE = /\b(?:inr|rni)\b\s*:?\s*(\d+[.,]\d+)?\s*$|\b(?:inr|rni)\b\s*:?\s*(\d+[.,]\d+)/;
 const URINA_HDR = /^(eas|urina\b|urinalise|exame (sumario )?de urina|sumario de urina|elementos anormais|urocultura|parcial de urina|qualitativo de urina)/;
 const SANGUE_HDR = /^(gasometria|hemograma|bioquimica|coagulograma|eletrolitos|funcao renal|funcao hepatica|marcadores|ionograma|leucograma|eritrograma|plaquetograma)\b/;
-const IGNORAR = /^(valor(es)? de refer|referencia|vr\b|metodo|unidade|nota\b|obs\b|observac)/;
+const IGNORAR = /^(valor(es)? de refer|referencia|vr\b|metodo|unidade|nota\b|obs\b|observac|resultados anteriores|homem\b|mulher\b|provavel|(masculino|feminino) (maior|menor)|crianca|adulto|glicemia (de )?jejum)/;
 const COLETA_RE = /(?:data\s+d[ae]\s+coleta|coletad[oa]\s+em|coleta|data\s+do\s+exame|data\s+de\s+realiza[cç][aã]o)\s*:?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)(?:\s*(?:as|às|-)?\s*(\d{1,2}:\d{2}))?/i;
 
 // Sinal de menos tipográfico (−, ‐, –) vira "-" para não perder o sinal do BE.
@@ -142,15 +143,21 @@ export function parseLab(text, hoje) {
   };
 
   let secao = '';
-  let pend = null; // nome do exame sozinho na linha: o valor vem na linha de baixo
-  for (const raw of linhas) {
+  let pend = null; // nome do exame sozinho na linha: o valor vem mais abaixo, às vezes numa linha "RESULTADO"
+  let pendIdade = 0;
+  for (const raw0 of linhas) {
+    // "H E M O G L O B I N A" -> "HEMOGLOBINA" (laudos com letras espaçadas)
+    const raw = raw0.split('\t').map((sg) => sg.replace(/(^|\s)((?:[A-Za-zÀ-ÿ] ){2,}[A-Za-zÀ-ÿ])(?=\s|$)/g, (m, a, b) => a + b.replace(/ /g, ''))).join('\t');
     const segs = raw.split('\t').map(junta).filter(Boolean);
     const full = clean(raw.replace(/\t/g, ' '));
     const n = norm(full);
     if (pend) {
-      const v = numInicio(norm(junta(raw)));
+      const nv = norm(junta(raw));
+      // Valor: linha "RESULTADO 74 mg/dL" ou que começa pelo número com unidade (não datas nem códigos).
+      const ehValor = /^resultado\b/.test(nv) || /^[<>]?\s*-?\d{1,6}([.,]\d+)?\s*(mg|g\/|meq|mmol|u\/|ui|%|\/mm|mil|pg|fl|ng|µ|μ|ml|s\b|x\s*10)/.test(nv);
+      const v = ehValor ? numInicio(nv) : '';
       if (v) { registrar(pend.hit, v, `${pend.fonte} ${full}`); pend = null; continue; }
-      if (!/^material\b/.test(n) && !IGNORAR.test(n)) pend = null; // "Material: soro" pode vir entre o nome e o resultado
+      if (++pendIdade > 8) pend = null;
     }
     if (/^material\b/.test(n)) { secao = /urin/.test(n) ? 'urina' : 'sangue'; continue; }
     if (URINA_HDR.test(n)) { secao = 'urina'; continue; }
@@ -165,8 +172,8 @@ export function parseLab(text, hoje) {
       secao = '';
     }
     for (const h of hits) {
-      if (has(h.valor)) registrar(h, h.valor, full);
-      else if (hits.length === 1 && segs.length <= 1) pend = { hit: h, fonte: full };
+      if (has(h.valor)) { registrar(h, h.valor, full); if (pend && (pend.hit.k || pend.hit.label) === (h.k || h.label)) pend = null; }
+      else if (hits.length === 1 && segs.length <= 1) { pend = { hit: h, fonte: full }; pendIdade = 0; }
     }
   }
   // Para cada exame, o primeiro valor plausível; se nenhum for, o primeiro (marcado para conferir).

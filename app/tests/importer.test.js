@@ -122,3 +122,61 @@ describe('detalhes da leitura', () => {
     expect(itemsToLines(items)).toBe('Idade: 64 anos\nHD:');
   });
 });
+
+// Formato do sistema do hospital (texto fictício com a mesma estrutura: tabelas com TAB, "#" e caixa alta).
+const SISTEMA = [
+  'EVOLUÇÃO MÉDICA',
+  'Nome\tBoletim\tData/Hora Entrada',
+  'Data/Hora Saída',
+  'FULANO FICTICIO DE TAL\t000000\t26/10/2026 00:15:16',
+  'Data de nascimento\tIdade\tSexo\tCNS\tProntuário',
+  '01/01/1960\t66\tMasculino\t000\t000',
+  'Data evolução\tData Internação\tSeção\tLeito',
+  '01/11/2026 23:52:58\t25/10/2026 01:25:06\tCTI 1\tLEITO 06 CTI 1',
+  'AVC: NÃO\tSEPSE: NÃO\tATB: NÃO',
+  'VENTILAÇÃO MECÂNICA',
+  'INVASIVA: NÃO\tNÃO INVASIVA: NÃO',
+  'AR AMBIENTE: NÃO',
+  '# EVOLUÇÃO MÉDICA CTI 1 - POSTO 2 - LEITO 6 - DOMINGO-NOITE #',
+  '#IH 26/10',
+  '#ADMISSAO CTI 26/10',
+  '#TCE GRAVE',
+  '#POS OP DE CRANIECTOMIA DESCOMPRESSIVA A DIREITA',
+  '#HDA: queda de altura, submetido a IOT em unidade de origem.',
+  '# HPP: s informaçao',
+  '# ALERGIAS: s informaçao',
+  '#ATB CLAVULIN INICIO 26/10 + CLARITOMICINA 27/10',
+  '#INVASÕES',
+  'VM+TOT 25/10 C CC',
+  'TROCA DE TUBO 7,5 (26/10) EM CTI',
+  'PVP VJIE (26/10)',
+  'PAI AFD CC',
+  'CNE',
+  '> TEVE DRENO 26/10',
+  '#INFUSOES',
+  '- FENTANIL 0,5 ML/H',
+  '- RL 21 ML/H',
+  '- DIETA 21 ML/H',
+  '#VM: PSV 11 - PEEP 6 - FIO2 0,30',
+  '# CONDUTA CONFORME ROTINA MEDICA:',
+  '- EM CASO DE INSTABILIDADE ESCALONAR O ATB PARA TAZOCIN.',
+].join('\n');
+
+describe('evolução do sistema do hospital', () => {
+  const r = parseEvolucao(SISTEMA, HOJE);
+  it('identificação pelas tabelas e pelo #IH/#ADMISSAO', () => {
+    expect(r.paciente).toMatchObject({ nome: 'FULANO FICTICIO DE TAL', idade: '66', sexo: 'M', internacao: '2026-10-26', admissao: '2026-10-26' });
+  });
+  it('diagnósticos nas linhas com #', () => {
+    expect(r.diagnosticos.map((d) => [d.texto, d.cirurgia])).toEqual([['TCE GRAVE', false], ['POS OP DE CRANIECTOMIA DESCOMPRESSIVA A DIREITA', true]]);
+    expect(r.alergias).toEqual([]);
+    expect(r.comorbidades).toEqual([]);
+  });
+  it('invasões, antimicrobianos, infusões e ventilação', () => {
+    expect(r.dispositivos.map((d) => [d.nome, d.data, d.sitio, d.origem])).toEqual([
+      ['TOT', '2026-10-25', '', 'CC'], ['CVC', '2026-10-26', 'VJIE', ''], ['PAI', '', 'AFD', 'CC'], ['SNE/SNG', '', '', '']]);
+    expect(r.atbs.map((a) => [a.nome, a.inicio])).toEqual([['Amoxicilina-clavulanato', '2026-10-26'], ['Claritromicina', '2026-10-27']]);
+    expect(r.infusoes.map((i) => [i.drugId || i.nome, i.vazao])).toEqual([['fenta', '0,5'], ['RL', '21']]);
+    expect(r.vent).toMatchObject({ modo: 'PSV', psup: '11', peep: '6', fio2: '30' });
+  });
+});

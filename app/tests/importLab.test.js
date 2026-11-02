@@ -250,3 +250,47 @@ describe('laudo em outros formatos', () => {
     expect(r.map((e) => [e.exame, e.data, e.resultado])).toEqual([['RX de tórax no leito AP', '2026-10-31', 'opacidade em base direita, sem pneumotórax.']]);
   });
 });
+
+describe('laboratório com letras espaçadas e RESULTADO em linha separada', () => {
+  const txt = [
+    'Sr.(a): FULANO FICTICIO',
+    'Nasc: 01/01/1960 - Idade: 66 anos - Sexo: Masculino',
+    'Unidade: HOSPITAL EXEMPLO\tCadastro: 01/11/2026 11:01:09',
+    'HEMOGRAMA COMPLETO',
+    'Material: SANGUE TOTAL (EDTA)',
+    'Resultados Anteriores\tValores de Referência',
+    '31/10/2026\t30/10/2026',
+    'H E M O G L O B I N A\t9,6 g/dL\t9.5\t9.9\t13,0 - 17,5 g/dL',
+    'H C M\t29,6 pg\t30.0\t30.7\t26 - 35 pg',
+    'L E U C Ó C I T O S\t10900 /mm3\t13130\t11440\t3500 - 10500 /mm3',
+    'P L A Q U E T A S\t241 mil/mm3\t230\t213\t130 - 400 mil/mm3',
+    '*Amostra Coletada em: 01/11/2026 19:05:22',
+    'UREIA',
+    'Resultados Anteriores',
+    'Material: SORO',
+    'Valor de referência',
+    'Método:',
+    '2600267231 2600266471',
+    '31/10/2026 30/10/2026',
+    'R E S U L T A D O\t74 mg/dL\t80\t83\t15 - 45 mg/dL',
+    'CREATININA',
+    'Material: SORO',
+    'Resultado\t1,39 mg/dL\t1.45\t1.34\tHomem: 0,7 - 1,4 mg/dL',
+    'Mulher: 0,6 - 1,2 mg/dL',
+    'GLICOSE',
+    'G L I C O S E\t244 mg/dL\t---\t---\tGlicemia jejum normal: de 70 - 99',
+    'Glicemia jejum alterada: de 100- 125',
+    'SODIO',
+    'R E S U L T A D O\t175 mEq/L\t169\t168\t136 a 146 mEq/L',
+    'PROTEINA C REATIVA, QUANTITATIVA',
+    'Material: SORO',
+    'Resultado\t74,2 mg/L\t75.2\t76.0\taté 5,0 mg/L',
+  ].join('\n');
+  const r = parseLab(txt, HOJE);
+  const val = (k) => (r.itens.find((x) => x.k === k) || {}).valor;
+  it('lê cada exame pelo título e pela linha RESULTADO', () => {
+    expect([r.data, r.hora]).toEqual(['2026-11-01', '19:05']);
+    expect([val('hb'), val('leuc'), val('plaq'), val('ur'), val('cr'), val('na'), val('pcr')]).toEqual(['9,6', '10900', '241.000', '74', '1,39', '175', '74,2']);
+    expect(r.outros.map((o) => `${o.label} ${o.valor}`)).toEqual(['Glicose 244']);
+  });
+});
