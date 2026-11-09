@@ -55,6 +55,7 @@ function fakeClient() {
         return { data: { user, session }, error: null };
       },
       async signInWithPassword({ email, password }) {
+        if (server.down) throw new TypeError('Failed to fetch');
         const u = server.users.get(email);
         if (!u || u.password !== password) return { data: { user: null, session: null }, error: { message: 'Invalid login credentials' } };
         session = { user: u.user };
@@ -148,5 +149,27 @@ describe('sincronização cifrada entre celular e PC', () => {
 
   it('traduz o erro de e-mail fora da equipe do Supabase', () => {
     expect(traduz({ message: 'Email address not authorized' })).toContain('mesmo e-mail da sua conta do Supabase');
+  });
+});
+
+describe('servidor fora do ar (projeto pausado)', () => {
+  const a = device();
+  it('abre com a cópia cifrada do aparelho, confere a senha e envia quando o servidor volta', async () => {
+    await a.run((c) => c.unlock({ email: 'outro@exemplo.com', password: SENHA, remember: false, create: true }));
+    await a.run(async (c) => { await c.save('bed:b2', { idade: '40' }, 5000); await c.push(); await c.lock(); });
+    server.down = true;
+    const errada = await a.run((c) => c.unlock({ email: 'outro@exemplo.com', password: 'senha errada', remember: false }));
+    expect(errada).toMatchObject({ ok: false, error: 'E-mail ou senha incorretos.' });
+    const r = await a.run((c) => c.unlock({ email: 'outro@exemplo.com', password: SENHA, remember: false }));
+    expect(r).toMatchObject({ ok: true, offline: true });
+    const docs = await a.run((c) => c.readCache());
+    expect(docs.find((d) => d.docKey === 'bed:b2').value).toEqual({ idade: '40' });
+    await a.run(async (c) => { await c.save('bed:b2', { idade: '41' }, 6000); await c.push(); });
+    expect(server.rows.get('uid-outro@exemplo.com|bed:b2').client_updated_at).toBe(5000);
+    server.down = false;
+    await a.run((c) => c.reconnect());
+    await a.run((c) => c.push());
+    expect(server.rows.get('uid-outro@exemplo.com|bed:b2').client_updated_at).toBe(6000);
+    await a.run((c) => c.lock());
   });
 });

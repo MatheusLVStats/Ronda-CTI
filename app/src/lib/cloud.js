@@ -47,8 +47,13 @@ export class Cloud {
         return { ok: false, needsConfirm: true };
       }
     } else {
-      res = await sb.auth.signInWithPassword({ email, password: authSecret });
+      res = await sb.auth.signInWithPassword({ email, password: authSecret }).catch((e) => ({ error: e }));
       if (res.error) {
+        // Servidor fora do ar ou sem internet: abre com a cópia cifrada deste aparelho e reconecta sozinho depois.
+        if (semServidor(res.error)) {
+          const off = await this.unlockOffline(email, encKey, authSecret, remember);
+          if (off) return off;
+        }
         this.status('idle');
         return { ok: false, error: traduz(res.error) };
       }
@@ -62,6 +67,44 @@ export class Cloud {
     this.cache = cache && cache.email === email ? cache : { email, cursor: null, docs: {} };
     this.saveCache();
     return { ok: true };
+  }
+
+  // Abre só com o cache local (a senha é conferida decifrando um documento). Sem cache, não abre.
+  async unlockOffline(email, encKey, authSecret, remember) {
+    const cache = getCache();
+    if (!cache || cache.email !== email) return null;
+    const doc = Object.entries(cache.docs || {}).find(([, d]) => d && d.c && !d.deleted);
+    if (!doc) return null;
+    try { await decryptDoc(encKey, doc[0], doc[1].c); } catch { return { ok: false, error: 'E-mail ou senha incorretos.' }; }
+    this.key = encKey;
+    this.user = null;
+    this.cache = cache;
+    this.pendingAuth = { email, authSecret };
+    if (remember) await storeKey(encKey).catch(() => {});
+    this.status('offline', 'Servidor indisponível: salvando no aparelho');
+    clearInterval(this.retryTimer);
+    this.retryTimer = setInterval(() => this.reconnect(), 20000);
+    return { ok: true, offline: true };
+  }
+
+  // Tenta entrar de novo; quando o servidor volta, baixa o que mudou, envia o que ficou pendente e liga o tempo real.
+  async reconnect() {
+    if (!this.pendingAuth || !this.client || this.reconnecting) return;
+    this.reconnecting = true;
+    try {
+      const { email, authSecret } = this.pendingAuth;
+      const res = await this.client.auth.signInWithPassword({ email, password: authSecret }).catch((e) => ({ error: e }));
+      if (res.error || !res.data || !res.data.user) return;
+      this.user = res.data.user;
+      this.pendingAuth = null;
+      clearInterval(this.retryTimer);
+      const changed = await this.pull();
+      for (const r of changed) this.onRemote && this.onRemote(r.docKey, r.value, r.updatedAt);
+      this.subscribe();
+      this.push();
+    } finally {
+      this.reconnecting = false;
+    }
   }
 
   // Aparelho lembrado: abre direto com a chave do IndexedDB e a sessão salva.
@@ -111,6 +154,7 @@ export class Cloud {
   }
 
   async push() {
+    if (!this.user && this.pendingAuth) { this.status('offline', 'Servidor indisponível: salvando no aparelho'); return; }
     if (!this.key || !this.user || this.pushing) return;
     const dirty = Object.entries(this.cache.docs).filter(([, d]) => d.dirty);
     if (!dirty.length) { this.status('synced'); return; }
@@ -171,7 +215,7 @@ export class Cloud {
   }
 
   subscribe() {
-    if (!this.client || this.channel) return;
+    if (!this.client || this.channel || !this.user) return;
     this.channel = this.client
       .channel('ronda-docs')
       .on('postgres_changes', { event: '*', schema: 'public', table: TABLE }, async (payload) => {
@@ -190,6 +234,8 @@ export class Cloud {
   // Bloqueia: esquece a chave e a sessão da memória; o cache continua cifrado no aparelho.
   async lock() {
     clearTimeout(this.pushTimer);
+    clearInterval(this.retryTimer);
+    this.pendingAuth = null;
     if (this.channel) { await this.client.removeChannel(this.channel).catch(() => {}); this.channel = null; }
     const acc = getAccount();
     if (!(acc && acc.remember) && this.client) await this.client.auth.signOut({ scope: 'local' }).catch(() => {});
@@ -208,6 +254,13 @@ export class Cloud {
     this.cache = null;
     await this.lock();
   }
+}
+
+// Erro de rede ou servidor parado/pausado (não é senha errada).
+export function semServidor(e) {
+  const m = String((e && (e.message || e.name)) || e || '');
+  const st = e && e.status;
+  return (e && e.name === 'AuthRetryableFetchError') || st === 0 || (st >= 500 && st < 600) || /Failed to fetch|NetworkError|network|Load failed|fetch/i.test(m);
 }
 
 export function traduz(e) {
